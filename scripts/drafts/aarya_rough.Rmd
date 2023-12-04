@@ -1,0 +1,29 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-12-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(keras)
+library(tensorflow)
+library(reticulate)
+
+library('keras'); reticulate::install_python(version = '3.10');install_keras()
+library(tensorflow) 
+
+path_to_python <- "/Users/aarya_kulkarni/tensorflow-test/env/lib/python3.8"
+virtualenv_create("r-reticulate", python = path_to_python)
+```
+
+```{r}
+install_tensorflow(envname = "r-reticulate")
+install_keras(envname = "r-reticulate")
+use_virtualenv("r-reticulate")
+```
+
+
