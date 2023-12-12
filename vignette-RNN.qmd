@@ -178,11 +178,11 @@ p <- p + geom_line(aes(x = V1, y = pred_out), colour = "red", size = 1 , alpha=0
 p
 ```
 
-## MSE
+## RMSE
 
 ```{r}
-mse <- mean((plot_data[,2] - plot_data[,3])^2)
-mse
+rmse <- sqrt(mean((plot_data[,2] - plot_data[,3])^2))
+rmse
 ```
 
 # LSTM RNN Model Using only Adjusted Closing Price
@@ -282,11 +282,13 @@ p
 ## MSE
 
 ```{r}
-mse_1v <- mean((plot_data_1v[,2] - plot_data_1v[,3])^2)
+mse_1v <- sqrt(mean((plot_data_1v[,2] - plot_data_1v[,3])^2))
 mse_1v
 ```
 
 # Other Predictive Models
+
+
 
 
 
