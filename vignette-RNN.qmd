@@ -17,7 +17,25 @@ library(dplyr)
 setwd("~/vignette-group10-RNN/data/")
 ```
 
+# Background and Overview of Project
+
+This vignette intends to introduce its audience to the concept of a recurrent neural network (RNN) and build upon that knowledge by providing an application of an RNN by using one to predict the stock price of the S&P 500 index. The goals of this vignette are threefold. Firstly, it aims to build a recurrent neural network model that uses the sequential/time series S&P 500 data to predict future prices. Secondly, it will outline the structure of a recurrent neural network model, explaining how its architecture and training process is different than standard feed forward networks. Lastly, it will compare performance and architecture of the RNN against other predictive models including a feed forward network, as well as SARIMA time-series model.
+
 # Import and Filter Data
+
+## Data Description
+
+The data we will be using comes from [Kaggle](https://www.kaggle.com/datasets/henryhan117/sp-500-historical-data/). This dataset includes daily observations of data regarding the S&P 500 index. Features include the following:
+
+| Feature        | Description                                                                       |
+|----------------|--------------------------------------------------------|
+| Date           | Date on which stock was observed                                                  |
+| Open           | Price at market open                                                              |
+| High           | Highest price on given trading day                                                |
+| Low            | Lowest price on given trading day                                                 |
+| Close          | Price at market close                                                             |
+| Adjusted Close | Price after all applicable splits and dividend distributions on given trading day |
+| Volume         | Number of shares traded on given trading day                                      |
 
 ```{r}
 data_raw <- read.csv("../data/spx_raw.csv")
@@ -51,7 +69,6 @@ Normalizing and standardizing data before feeding it into LSTM models serves to 
 data <- data.matrix(data_clean[,-1])
 
 # Standardize data --> center around mean for each column
-#train_data <- data[(500:1000),]
 mean <- apply(data, 2, mean)
 std <- apply(data, 2, sd)
 data <- scale(data, center = mean, scale = std)
@@ -77,9 +94,11 @@ Next, we'll talk about the generator function used to generate training sequence
 
 This function creates a specified amount of training observations (batch_size), each the length of the lookback value defined by the user. The step argument specifies when to resample the sequence, after every step timepoints. What this allows for are sequences of training data observations within the min/max indices specified. This allows the model to learn on multiple sequential observations of data rather than the 1 sequence of time series in the raw data. The output of the generator function is the a list of two arrays. The first array contains the set of sequences (# rows = batch_size) of training data (# columns = lookback) for each feature in the dataset. The second array contains the target or the response for each set of sequences (each row) with a shape of (batch_size x 1).
 
-In all, the generator function is crucial to ensure that our model is able to learn on multiple sequences of sequential stock price data, rather than the single sequence of raw data.
+In all, the generator function is crucial to ensure that our model is able to learn on multiple sequences of sequential stock price data, rather than the single sequence of raw data. In a standard feed forward network, not utilizing time-series data, training data would look like a flat representation of data. It could be in the form of individual pixel values of an image, or raw data values that are independent of one another. 
 
 # LSTM RNN Model using all Features
+
+Recurrent Neural Networks (RNNs) are a class of neural networks designed to process sequential data by retaining information in memory across time steps. They do well in handling time-series data or sequences due to their ability to maintain context and dependencies within the data. Long Short-Term Memory networks (LSTMs), which we'll be using in this vignette, represent a specialized type of RNN, engineered to address the vanishing gradient problem and better capture long-term dependencies. LSTMs possess a unique architecture, incorporating memory cells, input, forget, and output gates to regulate the flow of information, allowing them to selectively retain or forget information over extended sequences. 
 
 ## Calling the Generator Function and Creating Training Sequences
 
@@ -111,7 +130,7 @@ Here, we'll talk about the model architecture of the LSTM model that uses all th
 
 A simple dense input layer in Keras treats each input independently without considering any sequential relationships, making it better suited for tabular or non-sequential data. In contrast, an LSTM input layer in Keras is best suited for sequential or time-series data, being able to preserve and represent temporal dependencies across sequences, allowing it to better capture patterns within sequential data for tasks like natural language processing, time-series forecasting, and sequential prediction.
 
-Here, the LSTM model has an input size of 64 neurons, and an input shape of (lookback, \# of features in the datset). This allows the model to learn on 64 sequences
+The following code constructs a sequential model where the first layer is an LSTM with 64 units, followed by three densely connected layers with varying units and activation functions, resulting in a final output layer with a single unit, for regression tasks. This structure of an LSTM model in the code represents a network capable of learning patterns in sequential data while mitigating the challenges of vanishing gradients commonly encountered in traditional RNNs.
 
 ```{r}
 ### Setting up model
@@ -133,11 +152,15 @@ history <-
   )
 ```
 
-Looking at the results of history w/ validation split
+Looking at the results of history w/ validation split:
 
 ```{r}
 plot(history)
 ```
+
+Here, we can see that the training and validation loss and MSE follow each other closely. When both training and validation losses, including Mean Squared Error (MSE), closely align, it signifies that the model is likely achieving consistent performance on both the data it was trained on and unseen validation data. This alignment suggests that the model isn't exhibiting substantial overfitting. The convergence of training and validation losses indicates that the model's learning potentially isn't skewed towards the training data but rather captures underlying patterns that are consistent across different datasets.
+
+Factors like increasing the validation split percentage so that the model is able to be tested on more unseen data, or modifying the batch size as to have the model be able to learn on more data at a time, could change change the dynamic between the training and validation loss/MSE.
 
 ## Plotting Test Data vs. Predicted
 
@@ -159,7 +182,11 @@ pred_gen <- generator(
 )
 
 pred_gen_data <- pred_gen()
+```
 
+Let's look at test data vs predicted values:
+
+```{r}
 V1 = seq(1, length(pred_gen_data[[2]]))
 
 # binds V1 as time step (actual) to actual sequence 
@@ -174,20 +201,35 @@ plot_data <- cbind(plot_data, pred_out[])
 
 p <- ggplot(plot_data, aes(x = V1, y = V2)) + geom_line( colour = "blue", size = 1, alpha=0.4)
 p <- p + geom_line(aes(x = V1, y = pred_out), colour = "red", size = 1 , alpha=0.4)
+p <- p + labs(title = "Plot of Test Data (Blue) vs. Predicted Value (Red)") 
 
 p
 ```
 
+Looking at a graph of the actual testing sequence data (blue) compared to a graph of the predicted test data. We can see that the LSTM network does relatively well in capturing the overall shape of the volatile stock data. 
+
 ## RMSE
+
+Here, we'll take the RMSE of the selected testing interval, from index 1000 to 1260. The RMSE value will serve as the baseline metric that we can use to compare model performance. Since our model performs a regression task, the output is continuous, we can use this metric reliably. 
+
+A note on RMSE:
+
+Root Mean Square Error (RMSE) is a widely used metric to measure the average deviation of predicted values from actual observed values. It calculates the square root of the average of squared differences between predicted and true values, providing a single value that represents the typical magnitude of error in the model's predictions. Another key feature of RMSE is that it penalizes larger errors more significantly, offering a clear assessment of prediction accuracy.
 
 ```{r}
 rmse <- sqrt(mean((plot_data[,2] - plot_data[,3])^2))
 rmse
 ```
 
+In the case of the LSTM RNN model using all the features in the dataset, we achieved an RMSE of around 0.07.
+
 # LSTM RNN Model Using only Adjusted Closing Price
 
+Next, we'll redo our LSTM model using the feature we aim to predict, the adjusted closing price. This new model will use only use past values of adjusted closing price to predict the next adjusted close price using the same LSTM logic as before. 
+
 ## Generator Function, Creating Training Sequences
+
+In this case, we're generating training sequences with a lookback of 5 days of only the adjusted closing price value. 
 
 ```{r}
 source('~/vignette-group10-RNN/scripts/generator.R')
@@ -210,6 +252,8 @@ train_gen_data_1v <- train_gen_1v()
 ```
 
 ## Architecture
+
+We're using the same architecture as before, modifying the input shape of the first LSTM layer in our neural network. This modification allows for the univariate aspect of the model. 
 
 ```{r}
 ### Setting up model
@@ -238,7 +282,11 @@ Looking at results of history_1v w/ validation split.
 plot(history_1v)
 ```
 
+Here again, we can see that the training and validation split are very close together, indicating that the model is potentially doing a good job at not overfitting to the data. 
+
 ## Plotting Test Data vs. Predicted
+
+Here, the training sequences generated are using one variable (adjusted closing price) as mentioned before. The generator function has been modified in the `generator.R` file.
 
 ```{r}
 # Plotting actual test data vs. predicted (1 variable)
@@ -260,6 +308,11 @@ pred_gen <- generator_1v(
 
 pred_gen_data_1v <- pred_gen()
 
+```
+
+Let's look at test data vs predicted values:
+
+```{r}
 V1 = seq(1, length(pred_gen_data_1v[[2]]))
 
 # binds V1 as time step (actual) to actual sequence 
@@ -275,20 +328,20 @@ plot_data_1v <- cbind(plot_data_1v, pred_out_1v[])
 
 p <- ggplot(plot_data, aes(x = V1, y = V2)) + geom_line( colour = "blue", size = 1, alpha=0.4)
 p <- p + geom_line(aes(x = V1, y = pred_out), colour = "red", size = 1 , alpha=0.4)
+p <- p + labs(title = "Plot of Test Data (Blue) vs. Predicted Value (Red)") 
 
 p
 ```
 
-## MSE
+Again, we can see that the univariate model captures the overall trend of the testing data well. 
+
+## RMSE
 
 ```{r}
-mse_1v <- sqrt(mean((plot_data_1v[,2] - plot_data_1v[,3])^2))
-mse_1v
+rmse_1v <- sqrt(mean((plot_data_1v[,2] - plot_data_1v[,3])^2))
+rmse_1v
 ```
 
+In the case of the LSTM RNN model using all the features in the dataset, we achieved an RMSE of around 0.08.
+
 # Other Predictive Models
-
-
-
-
-
