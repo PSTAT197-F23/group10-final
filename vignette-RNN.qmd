@@ -1,0 +1,189 @@
+---
+title: "Vignette 10, Predicting S&P 500 Stock Prices with RNN models"
+author: 'Aarya Kulkarni, Ashwath Ekambaram, Rohit Kavuluru'
+date: today
+---
+
+```{r, message=FALSE, include=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(tidytext)
+library(keras)
+library(tensorflow)
+library(yardstick)
+library(ggplot2)
+library(dplyr)
+
+setwd("~/vignette-group10-RNN/data/")
+load("data_clean.RData")
+```
+
+# Import and Filter Data
+
+```{r}
+data_raw <- read.csv("../data/spx_raw.csv")
+
+data_raw$Date <- as.Date(data_raw$Date)
+data_clean <- data_raw %>% filter(Date >= '2015-11-04')
+head(data_clean)
+```
+
+Taking a look at the data we've filtered.
+
+```{r}
+# Looking at the data
+ggplot(data_clean, aes(x = 1:nrow(data_clean), y = Close)) + geom_line()
+```
+
+Taking a look at the portion we're potentially interested in for training.
+
+```{r}
+ggplot(data_clean[(500:1000),], aes(x = 500:1000, y = Close)) + geom_line()
+```
+
+# Standardize and Normalize Data
+
+Firstly, we'll clean the data so that each column is standardized, and normalized.
+
+Normalizing and standardizing data before feeding it into LSTM models serves to create consistency in scale and distribution among the input features.Normalization rescales data to a common range, between 0 and 1, ideal for handling varying feature ranges of dynamic data- in this case time series stock prices. Meanwhile, standardization centers data around mean zero and unit variance, which is beneficial for dealing with diverse feature units- such as volume vs price. These preprocessing techniques aid LSTM model convergence by ensuring all inputs fall within manageable ranges, acting as a safeguard from dominant features from skewing learning. They also enhance model robustness by minimizing the impact of outliers and mitigating numerical instabilities during optimization, ultimately allowing the model to capture complex temporal patterns within sequential data.
+
+```{r}
+### Standardize and Normalize data
+data <- data.matrix(data_clean[,-1])
+
+# Standardize data --> center around mean for each column
+#train_data <- data[(500:1000),]
+mean <- apply(data, 2, mean)
+std <- apply(data, 2, sd)
+data <- scale(data, center = mean, scale = std)
+
+# Normalize, create func. --> make between 0 and 1 for activation function 
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+max <- apply(data, 2, max)
+min <- apply(data, 2, min)
+
+# Normalize data & get rid of adjusted close 
+data <- apply(data, 2, normalize)
+
+# Shape of standardized, normalized data is the same as before
+plot(data[500:1000, 2], type = 'l')
+```
+
+# Calling the Generator Function and Creating Training Sequences
+
+Next, we'll talk about the generator function used to generate training sequences out of sequential, stock price data. 
+
+This function creates a specified amount of training observations (batch_size), each the length of the lookback value defined by the user. The step argument specifies when to resample the sequence, after every step timepoints. What this allows for are sequences of training data observations within the min/max indices specified. This allows the model to learn on multiple sequential observations of data rather than the 1 sequence of time series in the raw data. The output of the generator function is the a list of two arrays. The first array contains the set of sequences (# rows = batch_size) of training data (# columns = lookback) for each feature in the dataset. The second array contains the target or the response for each set of sequences (each row) with a shape of (batch_size x 1). 
+
+In all, the generator function is crucial to ensure that our model is able to learn on multiple sequences of sequential stock price data, rather than the single sequence of raw data.
+
+```{r}
+### calling generator function
+source('~/vignette-group10-RNN/scripts/generator.R')
+lookback <- 5
+step <- 1
+delay <- 0
+batch_size <- 500
+
+set.seed(123)
+train_gen <- generator(
+  data,
+  lookback = lookback,
+  delay = delay,
+  min_index = 500,
+  max_index = 1000,
+  shuffle = FALSE,
+  step = step,
+  batch_size = batch_size)
+
+train_gen_data <- train_gen() 
+```
+
+# Setting up the LSTM RNN Model
+
+Here, we'll talk about the model architecture of the LSTM model that uses all the features in the dataset to predict the adjusted closing price. 
+
+A simple dense input layer in Keras treats each input independently without considering any sequential relationships, making it better suited for tabular or non-sequential data. In contrast, an LSTM input layer in Keras is best suited for sequential or time-series data, being able to preserve and represent temporal dependencies across sequences, allowing it to better capture patterns within sequential data for tasks like natural language processing, time-series forecasting, and sequential prediction.
+
+Here, the LSTM model has an input size of 64 neurons, and an input shape of (lookback, # of features in the datset). This allows the model to learn on 64 sequences 
+
+```{r}
+### Setting up model
+model <- keras_model_sequential() %>%
+  layer_lstm(units = 64, input_shape = c(lookback, dim(data)[-1]))  %>%
+  layer_dense(units = 64, activation = "relu") %>%
+  layer_dense(units = 32, activation = "relu") %>%
+  layer_dense(units = 1)
+
+model %>% compile(loss = 'mean_squared_error', optimizer = 'adam',metrics='mse')
+
+history <-
+  model %>% fit (
+    train_gen_data[[1]],train_gen_data[[2]],
+    batch_size = 128,
+    epochs = 50,
+    validation_split = 0.1,
+    use_multiprocessing = T
+  )
+```
+
+Looking at the results of history w/ validation split
+
+```{r}
+plot(history)
+```
+
+## Plotting Test Data vs. Predicted
+
+```{r}
+batch_size_plot <- 120
+lookback_plot <- 5
+step_plot <- 1
+
+set.seed(123)
+pred_gen <- generator(
+  data,
+  lookback = lookback_plot,
+  delay = 0,
+  min_index = 1000,
+  max_index = 1260,
+  shuffle = FALSE,
+  step = step_plot,
+  batch_size = batch_size_plot
+)
+
+pred_gen_data <- pred_gen()
+
+V1 = seq(1, length(pred_gen_data[[2]]))
+
+# binds V1 as time step (actual) to actual sequence 
+plot_data <- as.data.frame(cbind(V1, pred_gen_data[[2]]))
+
+inputdata <- pred_gen_data[[1]][,,]
+dim(inputdata) <- c(batch_size_plot,lookback_plot, 6)
+
+pred_out <- model %>% predict(inputdata) 
+
+plot_data <- cbind(plot_data, pred_out[])
+
+mse <- mean((plot_data[,2] - plot_data[,3])^2)
+mse
+
+p <- ggplot(plot_data, aes(x = V1, y = V2)) + geom_line( colour = "blue", size = 1, alpha=0.4)
+p <- p + geom_line(aes(x = V1, y = pred_out), colour = "red", size = 1 , alpha=0.4)
+
+p
+```
+
+
+
+
+
+
+
+
+
+
