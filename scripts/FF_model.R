@@ -49,42 +49,47 @@ train_gen <- generator(
   batch_size = batch_size)
 train_gen_data <- train_gen() 
 # Adjusting the generator function to include only the past 5 days' stock prices
-generator_5days <- function(data,
-                            lookback,
-                            delay,
-                            min_index,
-                            max_index,
-                            shuffle = FALSE,
-                            batch_size = 128,
-                            step = 1) {
-  if (is.null(max_index))
-    max_index <- nrow(data) - delay - 1
-  i <- min_index + lookback
-  function() {
-    if (shuffle) {
-      rows <- sample(c((min_index + lookback):max_index), size = batch_size)
-    } else {
-      if (i + batch_size >= max_index)
-        i <<- min_index + lookback
-      rows <- c(i:min(i + batch_size - 1, max_index))
-      i <<- i + length(rows)
-    }
-    samples <- array(0, dim = c(length(rows),
-                                lookback / step * ncol(data),
-                                1))  # Adjusting to include only one feature (past stock prices)
-    targets <- array(0, dim = c(length(rows)))
-    
-    for (j in 1:length(rows)) {
-      indices <- seq(rows[[j]] - lookback, rows[[j]] - 1,
-                     length.out = dim(samples)[[2]])
-      samples[j, ,1] <- data[indices, 5]  # Assuming the 5th column represents the stock prices
-      targets[[j]] <- data[rows[[j]] + delay, 5]
-    }
-    list(samples, targets)
-  }
-}
+# generator_5days <- function(data,
+#                             lookback,
+#                             delay,
+#                             min_index,
+#                             max_index,
+#                             shuffle = FALSE,
+#                             batch_size = 128,
+#                             step = 1) {
+#   if (is.null(max_index))
+#     max_index <- nrow(data) - delay - 1
+#   i <- min_index + lookback
+#   function() {
+#     if (shuffle) {
+#       rows <- sample(c((min_index + lookback):max_index), size = batch_size)
+#     } else {
+#       if (i + batch_size >= max_index)
+#         i <<- min_index + lookback
+#       rows <- c(i:min(i + batch_size - 1, max_index))
+#       i <<- i + length(rows)
+#     }
+#     samples <- array(0, dim = c(length(rows),
+#                                 lookback / step * ncol(data),
+#                                 1))  # Adjusting to include only one feature (past stock prices)
+#     targets <- array(0, dim = c(length(rows)))
+#     
+#     for (j in 1:length(rows)) {
+#       indices <- seq(rows[[j]] - lookback, rows[[j]] - 1,
+#                      length.out = dim(samples)[[2]])
+#       samples[j, ,1] <- data[indices, 5]  # Assuming the 5th column represents the stock prices
+#       targets[[j]] <- data[rows[[j]] + delay, 5]
+#     }
+#     list(samples, targets)
+#   }
+# }
 
 # Creating a new generator using only past 5 days' stock prices
+source('~/Downloads/pstat197/vignette-group10-RNN/scripts/generator.R')
+lookback <- 5
+step <- 1
+delay <- 0
+batch_size <- 128
 set.seed(123)
 train_gen_5days <- generator_5days(
   data,
@@ -117,3 +122,4 @@ history <- model %>% fit(
 )
 
 plot(history)
+

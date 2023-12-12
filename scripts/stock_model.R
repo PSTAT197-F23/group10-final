@@ -8,7 +8,7 @@ library(ggplot2)
 library(dplyr)
 setwd("~/vignette-group10-RNN/data/")
 load("data_clean.RData")
-
+getwd()
 # Looking at the data
 ggplot(data_clean, aes(x = 1:nrow(data_clean), y = Close)) + geom_line()
 
@@ -39,7 +39,7 @@ data <- apply(data, 2, normalize)
 plot(data[500:1000, 2], type = 'l')
 
 ### calling generator function
-source('~/vignette-group10-RNN/scripts/generator.R')
+source('~/Downloads/pstat197/vignette-group10-RNN/scripts/generator.R')
 lookback <- 5
 step <- 1
 delay <- 0
@@ -116,7 +116,7 @@ p <- p + geom_line(aes(x = V1, y = pred_out), colour = "red", size = 1 , alpha=0
 p
 
 ### Model that uses only past 5 days stock prices
-source('~/vignette-group10-RNN/scripts/generator.R')
+source('~/Downloads/pstat197/vignette-group10-RNN/scripts/generator.R')
 lookback <- 5
 step <- 1
 delay <- 0
@@ -134,7 +134,7 @@ train_gen <- generator_1v(
 
 train_gen_data <- train_gen() 
 
-### Setting up model
+### Setting up model//
 model <- keras_model_sequential() %>%
   layer_lstm(units = 64, input_shape = c(lookback, dim(data)[-1]))  %>%
   layer_dense(units = 64, activation = "relu") %>%
