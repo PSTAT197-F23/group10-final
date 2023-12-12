@@ -345,8 +345,6 @@ rmse_1v
 In the case of the LSTM RNN model using all the features in the dataset, we achieved an RMSE of around 0.08.
 
 # Other Predictive Models
-<<<<<<< HEAD
-=======
 
 ## SARIMA Model 
 
@@ -428,8 +426,3 @@ rmse <- sqrt(mse)
 # Print RMSE value
 cat("RMSE for SARIMA model:", rmse, "\n")
 ```
-
-
-
-
->>>>>>> 6a92f625bbfa0047494894917985b45e76ae6da9
