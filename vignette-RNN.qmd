@@ -436,6 +436,25 @@ rmse <- sqrt(mse)
 cat("RMSE for SARIMA model:", rmse, "\n")
 ```
 
+When assessing the above RMSE value, we have to remember this approach is convenient for time series forecasting so traditional model evaluation metrics (such as Mean Squared Error) might not be directly applicable in this context, as we are continually updating the model with new information. Due to this, a better option would be to visualize the RMSE over time calculated on each iteration. The below plot does this.
+
+
+```{r}
+rmse_values <- c()
+
+# Calculate RMSE for each forecasted point
+for (i in 2:nrow(forecasts)) {
+  actual <- actual_values[1:i]
+  sarima_forecast <- sarima_forecast_values[1:i]
+  rmse <- sqrt(mean((actual - sarima_forecast)^2))
+  rmse_values <- c(rmse_values, rmse)
+}
+
+# Visualize RMSE over time
+plot(forecasts$Date[2:nrow(forecasts)], rmse_values, type = "l", col = "blue", lwd = 2, 
+     main = "Rolling RMSE Over Time (SARIMA)", xlab = "Date", ylab = "RMSE")
+```
+
 ## Feed Forward Neural Network
 
 This code snippet is setting up a feed-forward neural network, we used this model to compare the accuracy between a FNN and an RNN. A Feedforward Neural Network processes input data sequentially without memory of previous inputs, suitable for tasks with independent elements. In contrast, a Recurrent Neural Network maintains internal memory, allowing it to capture temporal dependencies in sequential data, which models time series data better.
