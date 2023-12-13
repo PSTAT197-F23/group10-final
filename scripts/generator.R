@@ -62,14 +62,13 @@ generator_1v <- function(data,
     
     for (j in 1:length(rows)) {
       indices <- seq(rows[[j]] - lookback, rows[[j]] - 1,
-                     length.out = dim(samples)[[2]])
-      samples[j, 1] <- data[indices, 5]
+                     length.out = lookback)
+      samples[j, ,] <- data[indices, 5]
       targets[[j]] <- data[rows[[j]] + delay, 5]
     }
     list(samples, targets)
   }
 }
-
 
 generator_5days <- function(data,
                             lookback,

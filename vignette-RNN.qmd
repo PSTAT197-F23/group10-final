@@ -428,11 +428,13 @@ rmse <- sqrt(mse)
 # Print RMSE value
 cat("RMSE for SARIMA model:", rmse, "\n")
 ```
+
 ## Feed Forward Neural Network
 
 This code snippet is setting up a feed-forward neural network, we used this model to compare the accuracy between a FNN and an RNN. A Feedforward Neural Network processes input data sequentially without memory of previous inputs, suitable for tasks with independent elements. In contrast, a Recurrent Neural Network maintains internal memory, allowing it to capture temporal dependencies in sequential data, which models time series data better. 
 
 This code starts with sourcing a script called generator.R to access relevant functions. The parameters lookback, step, delay, and batch_size are defined to configure the characteristics of the training data. Then, a data generator (train_gen_5days) is initialized using the generator_5days function, which takes into account the specified parameters, as well as the stock price data (data). The generator is set to cover a specific range of indices (min_index to max_index) from the dataset without shuffling the data. Finally, the generator is invoked to produce batches of training data, and the resulting data is stored in the variable train_gen_data_5days. This approach aligns with the common practice in time series forecasting, where a model is trained to predict future values based on historical sequences.
+
 ```{r}
 source('~/Downloads/pstat197/vignette-group10-RNN/scripts/generator.R')
 lookback <- 5
@@ -455,6 +457,7 @@ train_gen_data_5days <- train_gen_5days()
 ```
 
 Next, the simple feedforward neural network using the Keras API with the TensorFlow backend is defined. The network consists of a flatten layer to handle input data with a specific shape, followed by a dense layer with ReLU activation and an output layer with a single unit. The model is compiled using the Adam optimizer and Mean Absolute Error (MAE) loss. It is then trained on input samples (samples) and corresponding targets (targets) for 30 epochs, and the training history is visualized. Finally, the mean squared error (MSE) is calculated based on the difference between the predicted and actual values stored in plot_data.
+
 ```{r}
 model <- keras_model_sequential() %>%
   layer_flatten(input_shape = c(lookback / step , 6)) %>%  # Flatten layer to handle the input shape
@@ -476,6 +479,5 @@ plot(history)
 
 mse <- mean((plot_data[,2] - plot_data[,3])^2)
 mse
-
 ```
 
