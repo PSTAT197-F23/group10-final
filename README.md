@@ -21,3 +21,5 @@ This vignette intends to introduce its audience to the concept of a recurrent ne
 <https://blogs.rstudio.com/ai/posts/2017-12-20-time-series-forecasting-with-recurrent-neural-networks/>
 
 <https://builtin.com/data-science/recurrent-neural-networks-and-lstm>
+
+<https://towardsdatascience.com/time-series-forecasting-with-arima-sarima-and-sarimax-ee61099e78f6>
