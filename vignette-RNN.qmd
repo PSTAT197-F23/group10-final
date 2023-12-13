@@ -40,7 +40,7 @@ The data we will be using comes from [Kaggle](https://www.kaggle.com/datasets/he
 | Adjusted Close | Price after all applicable splits and dividend distributions on given trading day |
 | Volume         | Number of shares traded on given trading day                                      |
 
-```{r}
+```{r, warning=FALSE}
 data_raw <- read.csv("data/spx_raw.csv")
 
 data_raw$Date <- as.Date(data_raw$Date)
@@ -50,14 +50,14 @@ head(data_clean)
 
 Taking a look at the data we've filtered.
 
-```{r}
+```{r, warning=FALSE}
 # Looking at the data
 ggplot(data_clean, aes(x = 1:nrow(data_clean), y = Close)) + geom_line()
 ```
 
 Taking a look at the portion we're potentially interested in for training.
 
-```{r}
+```{r, warning=FALSE}
 ggplot(data_clean[(500:1000),], aes(x = 500:1000, y = Close)) + geom_line()
 ```
 
@@ -67,7 +67,7 @@ Firstly, we'll clean the data so that each column is standardized, and normalize
 
 Normalizing and standardizing data before feeding it into LSTM models serves to create consistency in scale and distribution among the input features.Normalization rescales data to a common range, between 0 and 1, ideal for handling varying feature ranges of dynamic data- in this case time series stock prices. Meanwhile, standardization centers data around mean zero and unit variance, which is beneficial for dealing with diverse feature units- such as volume vs price. These preprocessing techniques aid LSTM model convergence by ensuring all inputs fall within manageable ranges, acting as a safeguard from dominant features from skewing learning. They also enhance model robustness by minimizing the impact of outliers and mitigating numerical instabilities during optimization, ultimately allowing the model to capture complex temporal patterns within sequential data.
 
-```{r}
+```{r, warning=FALSE}
 ### Standardize and Normalize data
 data <- data.matrix(data_clean[,-1])
 
@@ -105,7 +105,7 @@ Recurrent Neural Networks (RNNs) are a class of neural networks designed to proc
 
 ## Calling the Generator Function and Creating Training Sequences
 
-```{r}
+```{r, warning=FALSE}
 ### calling generator function
 setwd(scripts_dir)
 source('generator.R')
@@ -136,7 +136,7 @@ A simple dense input layer in Keras treats each input independently without cons
 
 The following code constructs a sequential model where the first layer is an LSTM with 64 units, followed by three densely connected layers with varying units and activation functions, resulting in a final output layer with a single unit, for regression tasks. This structure of an LSTM model in the code represents a network capable of learning patterns in sequential data while mitigating the challenges of vanishing gradients commonly encountered in traditional RNNs.
 
-```{r}
+```{r, warning=FALSE}
 ### Setting up model
 model <- keras_model_sequential() %>%
   layer_lstm(units = 64, input_shape = c(lookback, dim(data)[-1]))  %>%
@@ -158,7 +158,7 @@ history <-
 
 Looking at the results of history w/ validation split:
 
-```{r}
+```{r, warning=FALSE}
 plot(history)
 ```
 
@@ -168,7 +168,7 @@ Factors like increasing the validation split percentage so that the model is abl
 
 ## Plotting Test Data vs. Predicted
 
-```{r}
+```{r, warning=FALSE}
 batch_size_plot <- 120
 lookback_plot <- 5
 step_plot <- 1
@@ -190,7 +190,7 @@ pred_gen_data <- pred_gen()
 
 Let's look at test data vs predicted values:
 
-```{r}
+```{r, warning=FALSE}
 V1 = seq(1, length(pred_gen_data[[2]]))
 
 # binds V1 as time step (actual) to actual sequence 
@@ -220,7 +220,7 @@ A note on RMSE:
 
 Root Mean Square Error (RMSE) is a widely used metric to measure the average deviation of predicted values from actual observed values. It calculates the square root of the average of squared differences between predicted and true values, providing a single value that represents the typical magnitude of error in the model's predictions. Another key feature of RMSE is that it penalizes larger errors more significantly, offering a clear assessment of prediction accuracy.
 
-```{r}
+```{r, warning=FALSE}
 rmse <- sqrt(mean((plot_data[,2] - plot_data[,3])^2))
 rmse
 ```
@@ -235,7 +235,7 @@ Next, we'll redo our LSTM model using the feature we aim to predict, the adjuste
 
 In this case, we're generating training sequences with a lookback of 5 days of only the adjusted closing price value. 
 
-```{r}
+```{r, warning=FALSE}
 setwd(scripts_dir)
 source('generator.R')
 lookback <- 5
@@ -260,7 +260,7 @@ train_gen_data_1v <- train_gen_1v()
 
 We're using the same architecture as before, modifying the input shape of the first LSTM layer in our neural network. This modification allows for the univariate aspect of the model. 
 
-```{r}
+```{r, warning=FALSE}
 ### Setting up model
 model_1v <- keras_model_sequential() %>%
   layer_lstm(units = 64, input_shape = c(lookback, 1))  %>%
@@ -283,7 +283,7 @@ history_1v <-
 
 Looking at results of history_1v w/ validation split.
 
-```{r}
+```{r, warning=FALSE}
 plot(history_1v)
 ```
 
@@ -293,7 +293,7 @@ Here again, we can see that the training and validation split are very close tog
 
 Here, the training sequences generated are using one variable (adjusted closing price) as mentioned before. The generator function has been modified in the `generator.R` file.
 
-```{r}
+```{r, warning=FALSE}
 # Plotting actual test data vs. predicted (1 variable)
 batch_size_plot <- 120
 lookback_plot <- 5
@@ -317,7 +317,7 @@ pred_gen_data_1v <- pred_gen()
 
 Let's look at test data vs predicted values:
 
-```{r}
+```{r, warning=FALSE}
 V1 = seq(1, length(pred_gen_data_1v[[2]]))
 
 # binds V1 as time step (actual) to actual sequence 
@@ -342,7 +342,7 @@ Again, we can see that the univariate model captures the overall trend of the te
 
 ## RMSE
 
-```{r}
+```{r, warning=FALSE}
 rmse_1v <- sqrt(mean((plot_data_1v[,2] - plot_data_1v[,3])^2))
 rmse_1v
 ```
@@ -355,7 +355,7 @@ In the case of the LSTM RNN model using all the features in the dataset, we achi
 
 The first model we can use to predict or 'forecast' the S&P 500 stock price can be an auto-regressive time series model. We first have to re-add the 'date' column from our original non-standardized dataset so we can use time series forecasting methods on the dataset. We do this below.
 
-```{r}
+```{r, warning=FALSE}
 library(forecast)
 library(lubridate)
 
@@ -376,7 +376,7 @@ window_size <- 6
 
 In the RNN and other models, we usually partition the data into 'training' and 'testing' so we can train our model then apply it on new data. Here we are using a 'rolling window approach', so the concept of distinct training and testing sets is somewhat implicit. As you iterate through the time series data, you use a portion of the past observations (rolling window) to train the model and predict the next observation. In this way, you are continually updating the model with new information and making one-step-ahead forecasts.
 
-```{r}
+```{r, warning=FALSE}
 # Initialize an empty dataframe to store forecasts
 forecasts <- data.frame(Date = as.Date(character()), Actual = numeric(), ARIMA = numeric(), SARIMA = numeric())
 
@@ -401,7 +401,7 @@ for (i in (window_size + 1):length(ts_data)) {
 
 So, the need for a separate training and testing set, as typically done in traditional model evaluation, is somewhat inherent in the rolling window approach. The testing set, in this case, is essentially the next data point that the model is predicting. The training set is the rolling window of past observations used to fit the model.
 
-```{r}
+```{r, warning=FALSE}
 
 #Visualize forecasts for SARIMA
 plot(ts_data, type = "l", col = "blue", lwd = 2, main = "SARIMA Model Forecast", xlab = "Date", ylab = "Closing Prices")
@@ -413,7 +413,7 @@ legend("topright", legend = c("Actual", "SARIMA Forecast"), col = c("black","gre
 ```
 In the above forecast plot, we can see the SARIMA model does a fairly effective job of predicting the actual values for the S&P 500 stock price. However, we do see some instances like in between day 3000 and day 3200 that the model doesn't follow the bottom of the 'valley' where the stock hits its lowest point.
 
-```{r}
+```{r, warning=FALSE}
 actual_values <- forecasts$Actual
 sarima_forecast_values <- forecasts$SARIMA
 
@@ -440,8 +440,9 @@ This code snippet is setting up a feed-forward neural network, we used this mode
 
 This code starts with sourcing a script called generator.R to access relevant functions. The parameters lookback, step, delay, and batch_size are defined to configure the characteristics of the training data. Then, a data generator (train_gen_5days) is initialized using the generator_5days function, which takes into account the specified parameters, as well as the stock price data (data). The generator is set to cover a specific range of indices (min_index to max_index) from the dataset without shuffling the data. Finally, the generator is invoked to produce batches of training data, and the resulting data is stored in the variable train_gen_data_5days. This approach aligns with the common practice in time series forecasting, where a model is trained to predict future values based on historical sequences.
 
-```{r}
-source('~/Downloads/pstat197/vignette-group10-RNN/scripts/generator.R')
+```{r, warning=FALSE}
+setwd(scripts_dir)
+source('generator.R')
 lookback <- 5
 step <- 1
 delay <- 0
@@ -463,7 +464,7 @@ train_gen_data_5days <- train_gen_5days()
 
 Next, the simple feedforward neural network using the Keras API with the TensorFlow backend is defined. The network consists of a flatten layer to handle input data with a specific shape, followed by a dense layer with ReLU activation and an output layer with a single unit. The model is compiled using the Adam optimizer and Mean Absolute Error (MAE) loss. It is then trained on input samples (samples) and corresponding targets (targets) for 30 epochs, and the training history is visualized. Finally, the mean squared error (MSE) is calculated based on the difference between the predicted and actual values stored in plot_data.
 
-```{r}
+```{r, warning=FALSE}
 model <- keras_model_sequential() %>%
   layer_flatten(input_shape = c(lookback / step , 6)) %>%  # Flatten layer to handle the input shape
   layer_dense(units = 32, activation = 'relu') %>%  # Dense layer with ReLU activation
