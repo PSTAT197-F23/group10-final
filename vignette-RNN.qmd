@@ -31,7 +31,7 @@ This vignette intends to introduce its audience to the concept of a recurrent ne
 The data we will be using comes from [Kaggle](https://www.kaggle.com/datasets/henryhan117/sp-500-historical-data/). This dataset includes daily observations of data regarding the S&P 500 index. Features include the following:
 
 | Feature        | Description                                                                       |
-|----------------|--------------------------------------------------------|
+|-------------------|-----------------------------------------------------|
 | Date           | Date on which stock was observed                                                  |
 | Open           | Price at market open                                                              |
 | High           | Highest price on given trading day                                                |
@@ -97,11 +97,11 @@ Next, we'll talk about the generator function used to generate training sequence
 
 This function creates a specified amount of training observations (batch_size), each the length of the lookback value defined by the user. The step argument specifies when to resample the sequence, after every step timepoints. What this allows for are sequences of training data observations within the min/max indices specified. This allows the model to learn on multiple sequential observations of data rather than the 1 sequence of time series in the raw data. The output of the generator function is the a list of two arrays. The first array contains the set of sequences (# rows = batch_size) of training data (# columns = lookback) for each feature in the dataset. The second array contains the target or the response for each set of sequences (each row) with a shape of (batch_size x 1).
 
-In all, the generator function is crucial to ensure that our model is able to learn on multiple sequences of sequential stock price data, rather than the single sequence of raw data. In a standard feed forward network, not utilizing time-series data, training data would look like a flat representation of data. It could be in the form of individual pixel values of an image, or raw data values that are independent of one another. 
+In all, the generator function is crucial to ensure that our model is able to learn on multiple sequences of sequential stock price data, rather than the single sequence of raw data. In a standard feed forward network, not utilizing time-series data, training data would look like a flat representation of data. It could be in the form of individual pixel values of an image, or raw data values that are independent of one another.
 
 # LSTM RNN Model using all Features
 
-Recurrent Neural Networks (RNNs) are a class of neural networks designed to process sequential data by retaining information in memory across time steps. They do well in handling time-series data or sequences due to their ability to maintain context and dependencies within the data. Long Short-Term Memory networks (LSTMs), which we'll be using in this vignette, represent a specialized type of RNN, engineered to address the vanishing gradient problem and better capture long-term dependencies. LSTMs possess a unique architecture, incorporating memory cells, input, forget, and output gates to regulate the flow of information, allowing them to selectively retain or forget information over extended sequences. 
+Recurrent Neural Networks (RNNs) are a class of neural networks designed to process sequential data by retaining information in memory across time steps. They do well in handling time-series data or sequences due to their ability to maintain context and dependencies within the data. Long Short-Term Memory networks (LSTMs), which we'll be using in this vignette, represent a specialized type of RNN, engineered to address the vanishing gradient problem and better capture long-term dependencies. LSTMs possess a unique architecture, incorporating memory cells, input, forget, and output gates to regulate the flow of information, allowing them to selectively retain or forget information over extended sequences.
 
 ## Calling the Generator Function and Creating Training Sequences
 
@@ -191,6 +191,7 @@ pred_gen_data <- pred_gen()
 Let's look at test data vs predicted values:
 
 ```{r, warning=FALSE}
+set.seed(123)
 V1 = seq(1, length(pred_gen_data[[2]]))
 
 # binds V1 as time step (actual) to actual sequence 
@@ -210,11 +211,11 @@ p <- p + labs(title = "Plot of Test Data (Blue) vs. Predicted Value (Red)")
 p
 ```
 
-Looking at a graph of the actual testing sequence data (blue) compared to a graph of the predicted test data. We can see that the LSTM network does relatively well in capturing the overall shape of the volatile stock data. 
+Looking at a graph of the actual testing sequence data (blue) compared to a graph of the predicted test data. We can see that the LSTM network does relatively well in capturing the overall shape of the volatile stock data.
 
 ## RMSE
 
-Here, we'll take the RMSE of the selected testing interval, from index 1000 to 1260. The RMSE value will serve as the baseline metric that we can use to compare model performance. Since our model performs a regression task, the output is continuous, we can use this metric reliably. 
+Here, we'll take the RMSE of the selected testing interval, from index 1000 to 1260. The RMSE value will serve as the baseline metric that we can use to compare model performance. Since our model performs a regression task, the output is continuous, we can use this metric reliably.
 
 A note on RMSE:
 
@@ -225,15 +226,15 @@ rmse <- sqrt(mean((plot_data[,2] - plot_data[,3])^2))
 rmse
 ```
 
-In the case of the LSTM RNN model using all the features in the dataset, we achieved an RMSE of around 0.07.
+In the case of the LSTM RNN model using all the features in the dataset, we achieved an RMSE of around 0.06 (changes slightly due to random error with set.seed).
 
 # LSTM RNN Model Using only Adjusted Closing Price
 
-Next, we'll redo our LSTM model using the feature we aim to predict, the adjusted closing price. This new model will use only use past values of adjusted closing price to predict the next adjusted close price using the same LSTM logic as before. 
+Next, we'll redo our LSTM model using the feature we aim to predict, the adjusted closing price. This new model will use only use past values of adjusted closing price to predict the next adjusted close price using the same LSTM logic as before.
 
 ## Generator Function, Creating Training Sequences
 
-In this case, we're generating training sequences with a lookback of 5 days of only the adjusted closing price value. 
+In this case, we're generating training sequences with a lookback of 5 days of only the adjusted closing price value.
 
 ```{r, warning=FALSE}
 setwd(scripts_dir)
@@ -258,7 +259,7 @@ train_gen_data_1v <- train_gen_1v()
 
 ## Architecture
 
-We're using the same architecture as before, modifying the input shape of the first LSTM layer in our neural network. This modification allows for the univariate aspect of the model. 
+We're using the same architecture as before, modifying the input shape of the first LSTM layer in our neural network. This modification allows for the univariate aspect of the model.
 
 ```{r, warning=FALSE}
 ### Setting up model
@@ -287,7 +288,7 @@ Looking at results of history_1v w/ validation split.
 plot(history_1v)
 ```
 
-Here again, we can see that the training and validation split are very close together, indicating that the model is potentially doing a good job at not overfitting to the data. 
+Here again, we can see that the training and validation split are very close together, indicating that the model is potentially doing a good job at not overfitting to the data.
 
 ## Plotting Test Data vs. Predicted
 
@@ -338,7 +339,7 @@ p <- p + labs(title = "Plot of Test Data (Blue) vs. Predicted Value (Red)")
 p
 ```
 
-Again, we can see that the univariate model captures the overall trend of the testing data well. 
+Again, we can see that the univariate model captures the overall trend of the testing data well.
 
 ## RMSE
 
@@ -347,11 +348,11 @@ rmse_1v <- sqrt(mean((plot_data_1v[,2] - plot_data_1v[,3])^2))
 rmse_1v
 ```
 
-In the case of the LSTM RNN model using all the features in the dataset, we achieved an RMSE of around 0.08.
+In the case of the LSTM RNN model using all the features in the dataset, we achieved an RMSE of around 0.08. (changes slightly due to random error with set.seed).
 
 # Other Predictive Models
 
-## SARIMA Model 
+## SARIMA Model
 
 The first model we can use to predict or 'forecast' the S&P 500 stock price can be an auto-regressive time series model. We first have to re-add the 'date' column from our original non-standardized dataset so we can use time series forecasting methods on the dataset. We do this below.
 
@@ -411,6 +412,7 @@ legend("topright", legend = c("Actual", "SARIMA Forecast"), col = c("black","gre
 
 
 ```
+
 In the above forecast plot, we can see the SARIMA model does a fairly effective job of predicting the actual values for the S&P 500 stock price. However, we do see some instances like in between day 3000 and day 3200 that the model doesn't follow the bottom of the 'valley' where the stock hits its lowest point.
 
 ```{r, warning=FALSE}
@@ -436,7 +438,7 @@ cat("RMSE for SARIMA model:", rmse, "\n")
 
 ## Feed Forward Neural Network
 
-This code snippet is setting up a feed-forward neural network, we used this model to compare the accuracy between a FNN and an RNN. A Feedforward Neural Network processes input data sequentially without memory of previous inputs, suitable for tasks with independent elements. In contrast, a Recurrent Neural Network maintains internal memory, allowing it to capture temporal dependencies in sequential data, which models time series data better. 
+This code snippet is setting up a feed-forward neural network, we used this model to compare the accuracy between a FNN and an RNN. A Feedforward Neural Network processes input data sequentially without memory of previous inputs, suitable for tasks with independent elements. In contrast, a Recurrent Neural Network maintains internal memory, allowing it to capture temporal dependencies in sequential data, which models time series data better.
 
 This code starts with sourcing a script called generator.R to access relevant functions. The parameters lookback, step, delay, and batch_size are defined to configure the characteristics of the training data. Then, a data generator (train_gen_5days) is initialized using the generator_5days function, which takes into account the specified parameters, as well as the stock price data (data). The generator is set to cover a specific range of indices (min_index to max_index) from the dataset without shuffling the data. Finally, the generator is invoked to produce batches of training data, and the resulting data is stored in the variable train_gen_data_5days. This approach aligns with the common practice in time series forecasting, where a model is trained to predict future values based on historical sequences.
 
@@ -487,3 +489,11 @@ mse <- mean((plot_data[,2] - plot_data[,3])^2)
 mse
 ```
 
+# Conclusion
+
+| Model Name                  | RSME Value |
+|-----------------------------|------------|
+| Multivariate LSTM RNN       | 0.055      |
+| Univariate LSTM RNN         | 0.077      |
+| SARIMA                      | 0.023      |
+| Feed-Forward Neural Network | 0.0790     |
