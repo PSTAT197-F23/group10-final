@@ -91,14 +91,14 @@ generator_5days <- function(data,
       i <<- i + length(rows)
     }
     samples <- array(0, dim = c(length(rows),
-                                lookback / step * ncol(data),
-                                1))  # Adjusting to include only one feature (past stock prices)
+                                lookback / step,
+                                6))  # Adjusting to include only one feature (past stock prices)
     targets <- array(0, dim = c(length(rows)))
     
     for (j in 1:length(rows)) {
       indices <- seq(rows[[j]] - lookback, rows[[j]] - 1,
                      length.out = dim(samples)[[2]])
-      samples[j, ,1] <- data[indices, 5]  # Assuming the 5th column represents the stock prices
+      samples[j, ,] <- data[indices, ]  # Assuming the 5th column represents the stock prices
       targets[[j]] <- data[rows[[j]] + delay, 5]
     }
     list(samples, targets)

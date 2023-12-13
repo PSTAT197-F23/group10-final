@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.433">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Aarya Kulkarni, Ashwath Ekambaram, Rohit Kavuluru">
+<meta name="dcterms.date" content="2023-12-12">
+
+<title>Vignette 10, Predicting S&amp;P 500 Stock Prices with RNN models</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="vignette-RNN_files/libs/clipboard/clipboard.min.js"></script>
+<script src="vignette-RNN_files/libs/quarto-html/quarto.js"></script>
+<script src="vignette-RNN_files/libs/quarto-html/popper.min.js"></script>
+<script src="vignette-RNN_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="vignette-RNN_files/libs/quarto-html/anchor.min.js"></script>
+<link href="vignette-RNN_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="vignette-RNN_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="vignette-RNN_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="vignette-RNN_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="vignette-RNN_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Vignette 10, Predicting S&amp;P 500 Stock Prices with RNN models</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Aarya Kulkarni, Ashwath Ekambaram, Rohit Kavuluru </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">December 12, 2023</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="background-and-overview-of-project" class="level1">
+<h1>Background and Overview of Project</h1>
+<p>This vignette intends to introduce its audience to the concept of a recurrent neural network (RNN) and build upon that knowledge by providing an application of an RNN by using one to predict the stock price of the S&amp;P 500 index. The goals of this vignette are threefold. Firstly, it aims to build a recurrent neural network model that uses the sequential/time series S&amp;P 500 data to predict future prices. Secondly, it will outline the structure of a recurrent neural network model, explaining how its architecture and training process is different than standard feed forward networks. Lastly, it will compare performance and architecture of the RNN against other predictive models including a feed forward network, as well as SARIMA time-series model.</p>
+</section>
+<section id="import-and-filter-data" class="level1">
+<h1>Import and Filter Data</h1>
+<section id="data-description" class="level2">
+<h2 class="anchored" data-anchor-id="data-description">Data Description</h2>
+<p>The data we will be using comes from <a href="https://www.kaggle.com/datasets/henryhan117/sp-500-historical-data/">Kaggle</a>. This dataset includes daily observations of data regarding the S&amp;P 500 index. Features include the following:</p>
+<table class="table">
+<colgroup>
+<col style="width: 29%">
+<col style="width: 70%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Date</td>
+<td>Date on which stock was observed</td>
+</tr>
+<tr class="even">
+<td>Open</td>
+<td>Price at market open</td>
+</tr>
+<tr class="odd">
+<td>High</td>
+<td>Highest price on given trading day</td>
+</tr>
+<tr class="even">
+<td>Low</td>
+<td>Lowest price on given trading day</td>
+</tr>
+<tr class="odd">
+<td>Close</td>
+<td>Price at market close</td>
+</tr>
+<tr class="even">
+<td>Adjusted Close</td>
+<td>Price after all applicable splits and dividend distributions on given trading day</td>
+</tr>
+<tr class="odd">
+<td>Volume</td>
+<td>Number of shares traded on given trading day</td>
+</tr>
+</tbody>
+</table>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>data_raw <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"data/spx_raw.csv"</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>data_raw<span class="sc">$</span>Date <span class="ot">&lt;-</span> <span class="fu">as.Date</span>(data_raw<span class="sc">$</span>Date)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>data_clean <span class="ot">&lt;-</span> data_raw <span class="sc">%&gt;%</span> <span class="fu">filter</span>(Date <span class="sc">&gt;=</span> <span class="st">'2015-11-04'</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(data_clean)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>        Date    Open    High     Low   Close Adj.Close     Volume
+1 2015-11-04 2110.60 2114.59 2096.98 2102.31   2102.31 4078870000
+2 2015-11-05 2101.68 2108.78 2090.41 2099.93   2099.93 4051890000
+3 2015-11-06 2098.60 2101.91 2083.74 2099.20   2099.20 4369020000
+4 2015-11-09 2096.56 2096.56 2068.24 2078.58   2078.58 3882350000
+5 2015-11-10 2077.19 2083.67 2069.91 2081.72   2081.72 3821440000
+6 2015-11-11 2083.41 2086.94 2074.85 2075.00   2075.00 3692410000</code></pre>
+</div>
+</div>
+<p>Taking a look at the data we’ve filtered.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Looking at the data</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(data_clean, <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(data_clean), <span class="at">y =</span> Close)) <span class="sc">+</span> <span class="fu">geom_line</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Taking a look at the portion we’re potentially interested in for training.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(data_clean[(<span class="dv">500</span><span class="sc">:</span><span class="dv">1000</span>),], <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">500</span><span class="sc">:</span><span class="dv">1000</span>, <span class="at">y =</span> Close)) <span class="sc">+</span> <span class="fu">geom_line</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+</section>
+<section id="standardize-and-normalize-data" class="level1">
+<h1>Standardize and Normalize Data</h1>
+<p>Firstly, we’ll clean the data so that each column is standardized, and normalized.</p>
+<p>Normalizing and standardizing data before feeding it into LSTM models serves to create consistency in scale and distribution among the input features.Normalization rescales data to a common range, between 0 and 1, ideal for handling varying feature ranges of dynamic data- in this case time series stock prices. Meanwhile, standardization centers data around mean zero and unit variance, which is beneficial for dealing with diverse feature units- such as volume vs price. These preprocessing techniques aid LSTM model convergence by ensuring all inputs fall within manageable ranges, acting as a safeguard from dominant features from skewing learning. They also enhance model robustness by minimizing the impact of outliers and mitigating numerical instabilities during optimization, ultimately allowing the model to capture complex temporal patterns within sequential data.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="do">### Standardize and Normalize data</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">data.matrix</span>(data_clean[,<span class="sc">-</span><span class="dv">1</span>])</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Standardize data --&gt; center around mean for each column</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>mean <span class="ot">&lt;-</span> <span class="fu">apply</span>(data, <span class="dv">2</span>, mean)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>std <span class="ot">&lt;-</span> <span class="fu">apply</span>(data, <span class="dv">2</span>, sd)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">scale</span>(data, <span class="at">center =</span> mean, <span class="at">scale =</span> std)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Normalize, create func. --&gt; make between 0 and 1 for activation function </span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>normalize <span class="ot">&lt;-</span> <span class="cf">function</span>(x) {</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span> ((x <span class="sc">-</span> <span class="fu">min</span>(x)) <span class="sc">/</span> (<span class="fu">max</span>(x) <span class="sc">-</span> <span class="fu">min</span>(x)))</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>max <span class="ot">&lt;-</span> <span class="fu">apply</span>(data, <span class="dv">2</span>, max)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>min <span class="ot">&lt;-</span> <span class="fu">apply</span>(data, <span class="dv">2</span>, min)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Normalize data &amp; get rid of adjusted close </span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">apply</span>(data, <span class="dv">2</span>, normalize)</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Shape of standardized, normalized data is the same as before</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(data[<span class="dv">500</span><span class="sc">:</span><span class="dv">1000</span>, <span class="dv">2</span>], <span class="at">type =</span> <span class="st">'l'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="the-generator-function" class="level1">
+<h1>The Generator Function</h1>
+<p>Next, we’ll talk about the generator function used to generate training sequences out of sequential, stock price data.</p>
+<p>This function creates a specified amount of training observations (batch_size), each the length of the lookback value defined by the user. The step argument specifies when to resample the sequence, after every step timepoints. What this allows for are sequences of training data observations within the min/max indices specified. This allows the model to learn on multiple sequential observations of data rather than the 1 sequence of time series in the raw data. The output of the generator function is the a list of two arrays. The first array contains the set of sequences (# rows = batch_size) of training data (# columns = lookback) for each feature in the dataset. The second array contains the target or the response for each set of sequences (each row) with a shape of (batch_size x 1).</p>
+<p>In all, the generator function is crucial to ensure that our model is able to learn on multiple sequences of sequential stock price data, rather than the single sequence of raw data. In a standard feed forward network, not utilizing time-series data, training data would look like a flat representation of data. It could be in the form of individual pixel values of an image, or raw data values that are independent of one another.</p>
+</section>
+<section id="lstm-rnn-model-using-all-features" class="level1">
+<h1>LSTM RNN Model using all Features</h1>
+<p>Recurrent Neural Networks (RNNs) are a class of neural networks designed to process sequential data by retaining information in memory across time steps. They do well in handling time-series data or sequences due to their ability to maintain context and dependencies within the data. Long Short-Term Memory networks (LSTMs), which we’ll be using in this vignette, represent a specialized type of RNN, engineered to address the vanishing gradient problem and better capture long-term dependencies. LSTMs possess a unique architecture, incorporating memory cells, input, forget, and output gates to regulate the flow of information, allowing them to selectively retain or forget information over extended sequences.</p>
+<section id="calling-the-generator-function-and-creating-training-sequences" class="level2">
+<h2 class="anchored" data-anchor-id="calling-the-generator-function-and-creating-training-sequences">Calling the Generator Function and Creating Training Sequences</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="do">### calling generator function</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">setwd</span>(scripts_dir)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">'generator.R'</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>lookback <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>step <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>delay <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>batch_size <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>train_gen <span class="ot">&lt;-</span> <span class="fu">generator</span>(</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  data,</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">lookback =</span> lookback,</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">delay =</span> delay,</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">min_index =</span> <span class="dv">500</span>,</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_index =</span> <span class="dv">1000</span>,</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">shuffle =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">step =</span> step,</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">batch_size =</span> batch_size)</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>train_gen_data <span class="ot">&lt;-</span> <span class="fu">train_gen</span>() </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="architecture" class="level2">
+<h2 class="anchored" data-anchor-id="architecture">Architecture</h2>
+<p>Here, we’ll talk about the model architecture of the LSTM model that uses all the features in the dataset to predict the adjusted closing price.</p>
+<p>A simple dense input layer in Keras treats each input independently without considering any sequential relationships, making it better suited for tabular or non-sequential data. In contrast, an LSTM input layer in Keras is best suited for sequential or time-series data, being able to preserve and represent temporal dependencies across sequences, allowing it to better capture patterns within sequential data for tasks like natural language processing, time-series forecasting, and sequential prediction.</p>
+<p>The following code constructs a sequential model where the first layer is an LSTM with 64 units, followed by three densely connected layers with varying units and activation functions, resulting in a final output layer with a single unit, for regression tasks. This structure of an LSTM model in the code represents a network capable of learning patterns in sequential data while mitigating the challenges of vanishing gradients commonly encountered in traditional RNNs.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="do">### Setting up model</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">keras_model_sequential</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_lstm</span>(<span class="at">units =</span> <span class="dv">64</span>, <span class="at">input_shape =</span> <span class="fu">c</span>(lookback, <span class="fu">dim</span>(data)[<span class="sc">-</span><span class="dv">1</span>]))  <span class="sc">%&gt;%</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_dense</span>(<span class="at">units =</span> <span class="dv">64</span>, <span class="at">activation =</span> <span class="st">"relu"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_dense</span>(<span class="at">units =</span> <span class="dv">32</span>, <span class="at">activation =</span> <span class="st">"relu"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_dense</span>(<span class="at">units =</span> <span class="dv">1</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>model <span class="sc">%&gt;%</span> <span class="fu">compile</span>(<span class="at">loss =</span> <span class="st">'mean_squared_error'</span>, <span class="at">optimizer =</span> <span class="st">'adam'</span>,<span class="at">metrics=</span><span class="st">'mse'</span>)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>history <span class="ot">&lt;-</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  model <span class="sc">%&gt;%</span> <span class="fu">fit</span> (</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    train_gen_data[[<span class="dv">1</span>]],train_gen_data[[<span class="dv">2</span>]],</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch_size =</span> <span class="dv">128</span>,</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">epochs =</span> <span class="dv">50</span>,</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">validation_split =</span> <span class="fl">0.1</span>,</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">use_multiprocessing =</span> T</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Epoch 1/50
+4/4 - 2s - loss: 0.2491 - mse: 0.2491 - val_loss: 0.2431 - val_mse: 0.2431 - 2s/epoch - 585ms/step
+Epoch 2/50
+4/4 - 0s - loss: 0.1399 - mse: 0.1399 - val_loss: 0.1293 - val_mse: 0.1293 - 63ms/epoch - 16ms/step
+Epoch 3/50
+4/4 - 0s - loss: 0.0593 - mse: 0.0593 - val_loss: 0.0313 - val_mse: 0.0313 - 45ms/epoch - 11ms/step
+Epoch 4/50
+4/4 - 0s - loss: 0.0072 - mse: 0.0072 - val_loss: 0.0037 - val_mse: 0.0037 - 43ms/epoch - 11ms/step
+Epoch 5/50
+4/4 - 0s - loss: 0.0160 - mse: 0.0160 - val_loss: 0.0127 - val_mse: 0.0127 - 42ms/epoch - 11ms/step
+Epoch 6/50
+4/4 - 0s - loss: 0.0131 - mse: 0.0131 - val_loss: 3.9406e-04 - val_mse: 3.9406e-04 - 42ms/epoch - 10ms/step
+Epoch 7/50
+4/4 - 0s - loss: 0.0017 - mse: 0.0017 - val_loss: 0.0059 - val_mse: 0.0059 - 43ms/epoch - 11ms/step
+Epoch 8/50
+4/4 - 0s - loss: 0.0032 - mse: 0.0032 - val_loss: 0.0099 - val_mse: 0.0099 - 45ms/epoch - 11ms/step
+Epoch 9/50
+4/4 - 0s - loss: 0.0035 - mse: 0.0035 - val_loss: 0.0050 - val_mse: 0.0050 - 42ms/epoch - 10ms/step
+Epoch 10/50
+4/4 - 0s - loss: 0.0014 - mse: 0.0014 - val_loss: 7.4453e-04 - val_mse: 7.4453e-04 - 42ms/epoch - 10ms/step
+Epoch 11/50
+4/4 - 0s - loss: 0.0014 - mse: 0.0014 - val_loss: 3.5915e-04 - val_mse: 3.5915e-04 - 43ms/epoch - 11ms/step
+Epoch 12/50
+4/4 - 0s - loss: 0.0014 - mse: 0.0014 - val_loss: 9.9049e-04 - val_mse: 9.9049e-04 - 42ms/epoch - 11ms/step
+Epoch 13/50
+4/4 - 0s - loss: 0.0010 - mse: 0.0010 - val_loss: 0.0024 - val_mse: 0.0024 - 45ms/epoch - 11ms/step
+Epoch 14/50
+4/4 - 0s - loss: 0.0011 - mse: 0.0011 - val_loss: 0.0025 - val_mse: 0.0025 - 45ms/epoch - 11ms/step
+Epoch 15/50
+4/4 - 0s - loss: 0.0010 - mse: 0.0010 - val_loss: 0.0017 - val_mse: 0.0017 - 43ms/epoch - 11ms/step
+Epoch 16/50
+4/4 - 0s - loss: 9.3884e-04 - mse: 9.3884e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 42ms/epoch - 10ms/step
+Epoch 17/50
+4/4 - 0s - loss: 9.4300e-04 - mse: 9.4300e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 43ms/epoch - 11ms/step
+Epoch 18/50
+4/4 - 0s - loss: 9.0886e-04 - mse: 9.0886e-04 - val_loss: 0.0014 - val_mse: 0.0014 - 42ms/epoch - 11ms/step
+Epoch 19/50
+4/4 - 0s - loss: 8.7775e-04 - mse: 8.7775e-04 - val_loss: 0.0017 - val_mse: 0.0017 - 42ms/epoch - 11ms/step
+Epoch 20/50
+4/4 - 0s - loss: 8.5039e-04 - mse: 8.5039e-04 - val_loss: 0.0015 - val_mse: 0.0015 - 43ms/epoch - 11ms/step
+Epoch 21/50
+4/4 - 0s - loss: 7.8435e-04 - mse: 7.8435e-04 - val_loss: 0.0014 - val_mse: 0.0014 - 42ms/epoch - 10ms/step
+Epoch 22/50
+4/4 - 0s - loss: 7.4607e-04 - mse: 7.4607e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 42ms/epoch - 11ms/step
+Epoch 23/50
+4/4 - 0s - loss: 7.3264e-04 - mse: 7.3264e-04 - val_loss: 9.9513e-04 - val_mse: 9.9513e-04 - 42ms/epoch - 11ms/step
+Epoch 24/50
+4/4 - 0s - loss: 7.1587e-04 - mse: 7.1587e-04 - val_loss: 0.0012 - val_mse: 0.0012 - 42ms/epoch - 11ms/step
+Epoch 25/50
+4/4 - 0s - loss: 6.9543e-04 - mse: 6.9543e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 42ms/epoch - 11ms/step
+Epoch 26/50
+4/4 - 0s - loss: 6.7553e-04 - mse: 6.7553e-04 - val_loss: 9.3078e-04 - val_mse: 9.3078e-04 - 42ms/epoch - 10ms/step
+Epoch 27/50
+4/4 - 0s - loss: 6.6395e-04 - mse: 6.6395e-04 - val_loss: 9.2431e-04 - val_mse: 9.2431e-04 - 42ms/epoch - 10ms/step
+Epoch 28/50
+4/4 - 0s - loss: 6.4163e-04 - mse: 6.4163e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 42ms/epoch - 10ms/step
+Epoch 29/50
+4/4 - 0s - loss: 6.3036e-04 - mse: 6.3036e-04 - val_loss: 9.7794e-04 - val_mse: 9.7794e-04 - 42ms/epoch - 10ms/step
+Epoch 30/50
+4/4 - 0s - loss: 6.1129e-04 - mse: 6.1129e-04 - val_loss: 9.1023e-04 - val_mse: 9.1023e-04 - 41ms/epoch - 10ms/step
+Epoch 31/50
+4/4 - 0s - loss: 5.9419e-04 - mse: 5.9419e-04 - val_loss: 8.3515e-04 - val_mse: 8.3515e-04 - 44ms/epoch - 11ms/step
+Epoch 32/50
+4/4 - 0s - loss: 5.8002e-04 - mse: 5.8002e-04 - val_loss: 8.1170e-04 - val_mse: 8.1170e-04 - 44ms/epoch - 11ms/step
+Epoch 33/50
+4/4 - 0s - loss: 5.6523e-04 - mse: 5.6523e-04 - val_loss: 7.9175e-04 - val_mse: 7.9175e-04 - 43ms/epoch - 11ms/step
+Epoch 34/50
+4/4 - 0s - loss: 5.5124e-04 - mse: 5.5124e-04 - val_loss: 7.5250e-04 - val_mse: 7.5250e-04 - 42ms/epoch - 10ms/step
+Epoch 35/50
+4/4 - 0s - loss: 5.4048e-04 - mse: 5.4048e-04 - val_loss: 7.9241e-04 - val_mse: 7.9241e-04 - 42ms/epoch - 10ms/step
+Epoch 36/50
+4/4 - 0s - loss: 5.2578e-04 - mse: 5.2578e-04 - val_loss: 6.5884e-04 - val_mse: 6.5884e-04 - 41ms/epoch - 10ms/step
+Epoch 37/50
+4/4 - 0s - loss: 5.1213e-04 - mse: 5.1213e-04 - val_loss: 7.2564e-04 - val_mse: 7.2564e-04 - 42ms/epoch - 10ms/step
+Epoch 38/50
+4/4 - 0s - loss: 5.0222e-04 - mse: 5.0222e-04 - val_loss: 7.1338e-04 - val_mse: 7.1338e-04 - 42ms/epoch - 11ms/step
+Epoch 39/50
+4/4 - 0s - loss: 4.9196e-04 - mse: 4.9196e-04 - val_loss: 5.7896e-04 - val_mse: 5.7896e-04 - 42ms/epoch - 11ms/step
+Epoch 40/50
+4/4 - 0s - loss: 4.8175e-04 - mse: 4.8175e-04 - val_loss: 6.2970e-04 - val_mse: 6.2970e-04 - 43ms/epoch - 11ms/step
+Epoch 41/50
+4/4 - 0s - loss: 4.7834e-04 - mse: 4.7834e-04 - val_loss: 6.5427e-04 - val_mse: 6.5427e-04 - 48ms/epoch - 12ms/step
+Epoch 42/50
+4/4 - 0s - loss: 4.6345e-04 - mse: 4.6345e-04 - val_loss: 5.0189e-04 - val_mse: 5.0189e-04 - 43ms/epoch - 11ms/step
+Epoch 43/50
+4/4 - 0s - loss: 4.6215e-04 - mse: 4.6215e-04 - val_loss: 5.3235e-04 - val_mse: 5.3235e-04 - 42ms/epoch - 10ms/step
+Epoch 44/50
+4/4 - 0s - loss: 4.5377e-04 - mse: 4.5377e-04 - val_loss: 6.2242e-04 - val_mse: 6.2242e-04 - 41ms/epoch - 10ms/step
+Epoch 45/50
+4/4 - 0s - loss: 4.5222e-04 - mse: 4.5222e-04 - val_loss: 4.5571e-04 - val_mse: 4.5571e-04 - 43ms/epoch - 11ms/step
+Epoch 46/50
+4/4 - 0s - loss: 4.4128e-04 - mse: 4.4128e-04 - val_loss: 5.7384e-04 - val_mse: 5.7384e-04 - 42ms/epoch - 11ms/step
+Epoch 47/50
+4/4 - 0s - loss: 4.4435e-04 - mse: 4.4435e-04 - val_loss: 5.3306e-04 - val_mse: 5.3306e-04 - 43ms/epoch - 11ms/step
+Epoch 48/50
+4/4 - 0s - loss: 4.4429e-04 - mse: 4.4429e-04 - val_loss: 4.0011e-04 - val_mse: 4.0011e-04 - 41ms/epoch - 10ms/step
+Epoch 49/50
+4/4 - 0s - loss: 4.3223e-04 - mse: 4.3223e-04 - val_loss: 5.8788e-04 - val_mse: 5.8788e-04 - 41ms/epoch - 10ms/step
+Epoch 50/50
+4/4 - 0s - loss: 4.3640e-04 - mse: 4.3640e-04 - val_loss: 4.5677e-04 - val_mse: 4.5677e-04 - 41ms/epoch - 10ms/step</code></pre>
+</div>
+</div>
+<p>Looking at the results of history w/ validation split:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(history)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Here, we can see that the training and validation loss and MSE follow each other closely. When both training and validation losses, including Mean Squared Error (MSE), closely align, it signifies that the model is likely achieving consistent performance on both the data it was trained on and unseen validation data. This alignment suggests that the model isn’t exhibiting substantial overfitting. The convergence of training and validation losses indicates that the model’s learning potentially isn’t skewed towards the training data but rather captures underlying patterns that are consistent across different datasets.</p>
+<p>Factors like increasing the validation split percentage so that the model is able to be tested on more unseen data, or modifying the batch size as to have the model be able to learn on more data at a time, could change change the dynamic between the training and validation loss/MSE.</p>
+</section>
+<section id="plotting-test-data-vs.-predicted" class="level2">
+<h2 class="anchored" data-anchor-id="plotting-test-data-vs.-predicted">Plotting Test Data vs.&nbsp;Predicted</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>batch_size_plot <span class="ot">&lt;-</span> <span class="dv">120</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>lookback_plot <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>step_plot <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>pred_gen <span class="ot">&lt;-</span> <span class="fu">generator</span>(</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  data,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">lookback =</span> lookback_plot,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">delay =</span> <span class="dv">0</span>,</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">min_index =</span> <span class="dv">1000</span>,</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_index =</span> <span class="dv">1260</span>,</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">shuffle =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">step =</span> step_plot,</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">batch_size =</span> batch_size_plot</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>pred_gen_data <span class="ot">&lt;-</span> <span class="fu">pred_gen</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Let’s look at test data vs predicted values:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>V1 <span class="ot">=</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(pred_gen_data[[<span class="dv">2</span>]]))</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co"># binds V1 as time step (actual) to actual sequence </span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>plot_data <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">cbind</span>(V1, pred_gen_data[[<span class="dv">2</span>]]))</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>inputdata <span class="ot">&lt;-</span> pred_gen_data[[<span class="dv">1</span>]][,,]</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(inputdata) <span class="ot">&lt;-</span> <span class="fu">c</span>(batch_size_plot,lookback_plot, <span class="dv">6</span>)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>pred_out <span class="ot">&lt;-</span> model <span class="sc">%&gt;%</span> <span class="fu">predict</span>(inputdata) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>4/4 - 0s - 344ms/epoch - 86ms/step</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>plot_data <span class="ot">&lt;-</span> <span class="fu">cbind</span>(plot_data, pred_out[])</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(plot_data, <span class="fu">aes</span>(<span class="at">x =</span> V1, <span class="at">y =</span> V2)) <span class="sc">+</span> <span class="fu">geom_line</span>( <span class="at">colour =</span> <span class="st">"blue"</span>, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">alpha=</span><span class="fl">0.4</span>)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> p <span class="sc">+</span> <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> V1, <span class="at">y =</span> pred_out), <span class="at">colour =</span> <span class="st">"red"</span>, <span class="at">size =</span> <span class="dv">1</span> , <span class="at">alpha=</span><span class="fl">0.4</span>)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> p <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Plot of Test Data (Blue) vs. Predicted Value (Red)"</span>) </span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>p</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Looking at a graph of the actual testing sequence data (blue) compared to a graph of the predicted test data. We can see that the LSTM network does relatively well in capturing the overall shape of the volatile stock data.</p>
+</section>
+<section id="rmse" class="level2">
+<h2 class="anchored" data-anchor-id="rmse">RMSE</h2>
+<p>Here, we’ll take the RMSE of the selected testing interval, from index 1000 to 1260. The RMSE value will serve as the baseline metric that we can use to compare model performance. Since our model performs a regression task, the output is continuous, we can use this metric reliably.</p>
+<p>A note on RMSE:</p>
+<p>Root Mean Square Error (RMSE) is a widely used metric to measure the average deviation of predicted values from actual observed values. It calculates the square root of the average of squared differences between predicted and true values, providing a single value that represents the typical magnitude of error in the model’s predictions. Another key feature of RMSE is that it penalizes larger errors more significantly, offering a clear assessment of prediction accuracy.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>rmse <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">mean</span>((plot_data[,<span class="dv">2</span>] <span class="sc">-</span> plot_data[,<span class="dv">3</span>])<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>rmse</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.05770053</code></pre>
+</div>
+</div>
+<p>In the case of the LSTM RNN model using all the features in the dataset, we achieved an RMSE of around 0.06 (changes slightly due to random error with set.seed).</p>
+</section>
+</section>
+<section id="lstm-rnn-model-using-only-adjusted-closing-price" class="level1">
+<h1>LSTM RNN Model Using only Adjusted Closing Price</h1>
+<p>Next, we’ll redo our LSTM model using the feature we aim to predict, the adjusted closing price. This new model will use only use past values of adjusted closing price to predict the next adjusted close price using the same LSTM logic as before.</p>
+<section id="generator-function-creating-training-sequences" class="level2">
+<h2 class="anchored" data-anchor-id="generator-function-creating-training-sequences">Generator Function, Creating Training Sequences</h2>
+<p>In this case, we’re generating training sequences with a lookback of 5 days of only the adjusted closing price value.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">setwd</span>(scripts_dir)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">'generator.R'</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>lookback <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>step <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>delay <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>batch_size <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>train_gen_1v <span class="ot">&lt;-</span> <span class="fu">generator_1v</span>(</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  data,</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">lookback =</span> lookback,</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">delay =</span> delay,</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">min_index =</span> <span class="dv">500</span>,</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_index =</span> <span class="dv">1000</span>,</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">shuffle =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">step =</span> step,</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">batch_size =</span> batch_size)</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>train_gen_data_1v <span class="ot">&lt;-</span> <span class="fu">train_gen_1v</span>() </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="architecture-1" class="level2">
+<h2 class="anchored" data-anchor-id="architecture-1">Architecture</h2>
+<p>We’re using the same architecture as before, modifying the input shape of the first LSTM layer in our neural network. This modification allows for the univariate aspect of the model.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="do">### Setting up model</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>model_1v <span class="ot">&lt;-</span> <span class="fu">keras_model_sequential</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_lstm</span>(<span class="at">units =</span> <span class="dv">64</span>, <span class="at">input_shape =</span> <span class="fu">c</span>(lookback, <span class="dv">1</span>))  <span class="sc">%&gt;%</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_dense</span>(<span class="at">units =</span> <span class="dv">64</span>, <span class="at">activation =</span> <span class="st">"relu"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_dense</span>(<span class="at">units =</span> <span class="dv">32</span>, <span class="at">activation =</span> <span class="st">"relu"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_dense</span>(<span class="at">units =</span> <span class="dv">1</span>)</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>model_1v <span class="sc">%&gt;%</span> <span class="fu">compile</span>(<span class="at">loss =</span> <span class="st">'mean_squared_error'</span>, <span class="at">optimizer =</span> <span class="st">'adam'</span>,<span class="at">metrics=</span><span class="st">'mse'</span>)</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>history_1v <span class="ot">&lt;-</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>  model_1v <span class="sc">%&gt;%</span> <span class="fu">fit</span> (</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>    train_gen_data_1v[[<span class="dv">1</span>]],train_gen_data_1v[[<span class="dv">2</span>]],</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch_size =</span> <span class="dv">128</span>,</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">epochs =</span> <span class="dv">50</span>,</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">validation_split =</span> <span class="fl">0.1</span>,</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">use_multiprocessing =</span> T</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Epoch 1/50
+4/4 - 2s - loss: 0.2242 - mse: 0.2242 - val_loss: 0.2314 - val_mse: 0.2314 - 2s/epoch - 548ms/step
+Epoch 2/50
+4/4 - 0s - loss: 0.1306 - mse: 0.1306 - val_loss: 0.1154 - val_mse: 0.1154 - 43ms/epoch - 11ms/step
+Epoch 3/50
+4/4 - 0s - loss: 0.0528 - mse: 0.0528 - val_loss: 0.0291 - val_mse: 0.0291 - 42ms/epoch - 11ms/step
+Epoch 4/50
+4/4 - 0s - loss: 0.0068 - mse: 0.0068 - val_loss: 9.6993e-04 - val_mse: 9.6993e-04 - 42ms/epoch - 11ms/step
+Epoch 5/50
+4/4 - 0s - loss: 0.0102 - mse: 0.0102 - val_loss: 0.0139 - val_mse: 0.0139 - 42ms/epoch - 10ms/step
+Epoch 6/50
+4/4 - 0s - loss: 0.0165 - mse: 0.0165 - val_loss: 0.0033 - val_mse: 0.0033 - 42ms/epoch - 10ms/step
+Epoch 7/50
+4/4 - 0s - loss: 0.0043 - mse: 0.0043 - val_loss: 0.0019 - val_mse: 0.0019 - 51ms/epoch - 13ms/step
+Epoch 8/50
+4/4 - 0s - loss: 0.0016 - mse: 0.0016 - val_loss: 0.0095 - val_mse: 0.0095 - 44ms/epoch - 11ms/step
+Epoch 9/50
+4/4 - 0s - loss: 0.0041 - mse: 0.0041 - val_loss: 0.0101 - val_mse: 0.0101 - 43ms/epoch - 11ms/step
+Epoch 10/50
+4/4 - 0s - loss: 0.0033 - mse: 0.0033 - val_loss: 0.0054 - val_mse: 0.0054 - 43ms/epoch - 11ms/step
+Epoch 11/50
+4/4 - 0s - loss: 0.0013 - mse: 0.0013 - val_loss: 0.0014 - val_mse: 0.0014 - 44ms/epoch - 11ms/step
+Epoch 12/50
+4/4 - 0s - loss: 0.0011 - mse: 0.0011 - val_loss: 3.5719e-04 - val_mse: 3.5719e-04 - 43ms/epoch - 11ms/step
+Epoch 13/50
+4/4 - 0s - loss: 0.0016 - mse: 0.0016 - val_loss: 3.8787e-04 - val_mse: 3.8787e-04 - 43ms/epoch - 11ms/step
+Epoch 14/50
+4/4 - 0s - loss: 0.0013 - mse: 0.0013 - val_loss: 0.0011 - val_mse: 0.0011 - 42ms/epoch - 11ms/step
+Epoch 15/50
+4/4 - 0s - loss: 8.8212e-04 - mse: 8.8212e-04 - val_loss: 0.0024 - val_mse: 0.0024 - 43ms/epoch - 11ms/step
+Epoch 16/50
+4/4 - 0s - loss: 9.9947e-04 - mse: 9.9947e-04 - val_loss: 0.0030 - val_mse: 0.0030 - 43ms/epoch - 11ms/step
+Epoch 17/50
+4/4 - 0s - loss: 0.0010 - mse: 0.0010 - val_loss: 0.0023 - val_mse: 0.0023 - 44ms/epoch - 11ms/step
+Epoch 18/50
+4/4 - 0s - loss: 8.8237e-04 - mse: 8.8237e-04 - val_loss: 0.0014 - val_mse: 0.0014 - 43ms/epoch - 11ms/step
+Epoch 19/50
+4/4 - 0s - loss: 8.6910e-04 - mse: 8.6910e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 41ms/epoch - 10ms/step
+Epoch 20/50
+4/4 - 0s - loss: 8.8567e-04 - mse: 8.8567e-04 - val_loss: 0.0012 - val_mse: 0.0012 - 43ms/epoch - 11ms/step
+Epoch 21/50
+4/4 - 0s - loss: 8.4173e-04 - mse: 8.4173e-04 - val_loss: 0.0016 - val_mse: 0.0016 - 42ms/epoch - 11ms/step
+Epoch 22/50
+4/4 - 0s - loss: 8.3623e-04 - mse: 8.3623e-04 - val_loss: 0.0018 - val_mse: 0.0018 - 42ms/epoch - 11ms/step
+Epoch 23/50
+4/4 - 0s - loss: 8.3561e-04 - mse: 8.3561e-04 - val_loss: 0.0017 - val_mse: 0.0017 - 43ms/epoch - 11ms/step
+Epoch 24/50
+4/4 - 0s - loss: 8.1780e-04 - mse: 8.1780e-04 - val_loss: 0.0015 - val_mse: 0.0015 - 43ms/epoch - 11ms/step
+Epoch 25/50
+4/4 - 0s - loss: 8.1033e-04 - mse: 8.1033e-04 - val_loss: 0.0013 - val_mse: 0.0013 - 42ms/epoch - 10ms/step
+Epoch 26/50
+4/4 - 0s - loss: 8.0737e-04 - mse: 8.0737e-04 - val_loss: 0.0013 - val_mse: 0.0013 - 42ms/epoch - 11ms/step
+Epoch 27/50
+4/4 - 0s - loss: 7.9682e-04 - mse: 7.9682e-04 - val_loss: 0.0014 - val_mse: 0.0014 - 42ms/epoch - 11ms/step
+Epoch 28/50
+4/4 - 0s - loss: 7.8808e-04 - mse: 7.8808e-04 - val_loss: 0.0015 - val_mse: 0.0015 - 45ms/epoch - 11ms/step
+Epoch 29/50
+4/4 - 0s - loss: 7.8355e-04 - mse: 7.8355e-04 - val_loss: 0.0015 - val_mse: 0.0015 - 57ms/epoch - 14ms/step
+Epoch 30/50
+4/4 - 0s - loss: 7.7523e-04 - mse: 7.7523e-04 - val_loss: 0.0014 - val_mse: 0.0014 - 48ms/epoch - 12ms/step
+Epoch 31/50
+4/4 - 0s - loss: 7.6795e-04 - mse: 7.6795e-04 - val_loss: 0.0013 - val_mse: 0.0013 - 44ms/epoch - 11ms/step
+Epoch 32/50
+4/4 - 0s - loss: 7.6126e-04 - mse: 7.6126e-04 - val_loss: 0.0013 - val_mse: 0.0013 - 42ms/epoch - 11ms/step
+Epoch 33/50
+4/4 - 0s - loss: 7.5414e-04 - mse: 7.5414e-04 - val_loss: 0.0014 - val_mse: 0.0014 - 43ms/epoch - 11ms/step
+Epoch 34/50
+4/4 - 0s - loss: 7.4744e-04 - mse: 7.4744e-04 - val_loss: 0.0014 - val_mse: 0.0014 - 44ms/epoch - 11ms/step
+Epoch 35/50
+4/4 - 0s - loss: 7.4058e-04 - mse: 7.4058e-04 - val_loss: 0.0014 - val_mse: 0.0014 - 42ms/epoch - 10ms/step
+Epoch 36/50
+4/4 - 0s - loss: 7.3229e-04 - mse: 7.3229e-04 - val_loss: 0.0013 - val_mse: 0.0013 - 43ms/epoch - 11ms/step
+Epoch 37/50
+4/4 - 0s - loss: 7.2495e-04 - mse: 7.2495e-04 - val_loss: 0.0012 - val_mse: 0.0012 - 43ms/epoch - 11ms/step
+Epoch 38/50
+4/4 - 0s - loss: 7.1837e-04 - mse: 7.1837e-04 - val_loss: 0.0012 - val_mse: 0.0012 - 43ms/epoch - 11ms/step
+Epoch 39/50
+4/4 - 0s - loss: 7.1127e-04 - mse: 7.1127e-04 - val_loss: 0.0012 - val_mse: 0.0012 - 46ms/epoch - 12ms/step
+Epoch 40/50
+4/4 - 0s - loss: 7.0494e-04 - mse: 7.0494e-04 - val_loss: 0.0013 - val_mse: 0.0013 - 42ms/epoch - 11ms/step
+Epoch 41/50
+4/4 - 0s - loss: 6.9692e-04 - mse: 6.9692e-04 - val_loss: 0.0012 - val_mse: 0.0012 - 42ms/epoch - 11ms/step
+Epoch 42/50
+4/4 - 0s - loss: 6.8941e-04 - mse: 6.8941e-04 - val_loss: 0.0012 - val_mse: 0.0012 - 43ms/epoch - 11ms/step
+Epoch 43/50
+4/4 - 0s - loss: 6.8219e-04 - mse: 6.8219e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 42ms/epoch - 11ms/step
+Epoch 44/50
+4/4 - 0s - loss: 6.7705e-04 - mse: 6.7705e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 42ms/epoch - 11ms/step
+Epoch 45/50
+4/4 - 0s - loss: 6.7459e-04 - mse: 6.7459e-04 - val_loss: 9.9817e-04 - val_mse: 9.9817e-04 - 42ms/epoch - 11ms/step
+Epoch 46/50
+4/4 - 0s - loss: 6.6389e-04 - mse: 6.6389e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 42ms/epoch - 10ms/step
+Epoch 47/50
+4/4 - 0s - loss: 6.5766e-04 - mse: 6.5766e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 43ms/epoch - 11ms/step
+Epoch 48/50
+4/4 - 0s - loss: 6.4923e-04 - mse: 6.4923e-04 - val_loss: 0.0011 - val_mse: 0.0011 - 43ms/epoch - 11ms/step
+Epoch 49/50
+4/4 - 0s - loss: 6.4417e-04 - mse: 6.4417e-04 - val_loss: 9.6464e-04 - val_mse: 9.6464e-04 - 43ms/epoch - 11ms/step
+Epoch 50/50
+4/4 - 0s - loss: 6.3683e-04 - mse: 6.3683e-04 - val_loss: 0.0010 - val_mse: 0.0010 - 43ms/epoch - 11ms/step</code></pre>
+</div>
+</div>
+<p>Looking at results of history_1v w/ validation split.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(history_1v)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Here again, we can see that the training and validation split are very close together, indicating that the model is potentially doing a good job at not overfitting to the data.</p>
+</section>
+<section id="plotting-test-data-vs.-predicted-1" class="level2">
+<h2 class="anchored" data-anchor-id="plotting-test-data-vs.-predicted-1">Plotting Test Data vs.&nbsp;Predicted</h2>
+<p>Here, the training sequences generated are using one variable (adjusted closing price) as mentioned before. The generator function has been modified in the <code>generator.R</code> file.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plotting actual test data vs. predicted (1 variable)</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>batch_size_plot <span class="ot">&lt;-</span> <span class="dv">120</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>lookback_plot <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>step_plot <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>pred_gen <span class="ot">&lt;-</span> <span class="fu">generator_1v</span>(</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  data,</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">lookback =</span> lookback_plot,</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">delay =</span> <span class="dv">0</span>,</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">min_index =</span> <span class="dv">1000</span>,</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_index =</span> <span class="dv">1260</span>,</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">shuffle =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">step =</span> step_plot,</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">batch_size =</span> batch_size_plot</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>pred_gen_data_1v <span class="ot">&lt;-</span> <span class="fu">pred_gen</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Let’s look at test data vs predicted values:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>V1 <span class="ot">=</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(pred_gen_data_1v[[<span class="dv">2</span>]]))</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co"># binds V1 as time step (actual) to actual sequence </span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>plot_data_1v <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">cbind</span>(V1, pred_gen_data[[<span class="dv">2</span>]]))</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>inputdata_1v <span class="ot">&lt;-</span> pred_gen_data_1v[[<span class="dv">1</span>]][,,]</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(inputdata_1v) <span class="ot">&lt;-</span> <span class="fu">c</span>(batch_size_plot,lookback_plot, <span class="dv">1</span>)</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>pred_out_1v <span class="ot">&lt;-</span> model_1v <span class="sc">%&gt;%</span> <span class="fu">predict</span>(inputdata_1v) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>4/4 - 0s - 335ms/epoch - 84ms/step</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>plot_data_1v <span class="ot">&lt;-</span> <span class="fu">cbind</span>(plot_data_1v, pred_out_1v[])</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(plot_data, <span class="fu">aes</span>(<span class="at">x =</span> V1, <span class="at">y =</span> V2)) <span class="sc">+</span> <span class="fu">geom_line</span>( <span class="at">colour =</span> <span class="st">"blue"</span>, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">alpha=</span><span class="fl">0.4</span>)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> p <span class="sc">+</span> <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> V1, <span class="at">y =</span> pred_out), <span class="at">colour =</span> <span class="st">"red"</span>, <span class="at">size =</span> <span class="dv">1</span> , <span class="at">alpha=</span><span class="fl">0.4</span>)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> p <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Plot of Test Data (Blue) vs. Predicted Value (Red)"</span>) </span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>p</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Again, we can see that the univariate model captures the overall trend of the testing data well.</p>
+</section>
+<section id="rmse-1" class="level2">
+<h2 class="anchored" data-anchor-id="rmse-1">RMSE</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>rmse_1v <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">mean</span>((plot_data_1v[,<span class="dv">2</span>] <span class="sc">-</span> plot_data_1v[,<span class="dv">3</span>])<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>rmse_1v</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.07073405</code></pre>
+</div>
+</div>
+<p>In the case of the LSTM RNN model using all the features in the dataset, we achieved an RMSE of around 0.08. (changes slightly due to random error with set.seed).</p>
+</section>
+</section>
+<section id="other-predictive-models" class="level1">
+<h1>Other Predictive Models</h1>
+<section id="sarima-model" class="level2">
+<h2 class="anchored" data-anchor-id="sarima-model">SARIMA Model</h2>
+<p>The first model we can use to predict or ‘forecast’ the S&amp;P 500 stock price can be an auto-regressive time series model. We first have to re-add the ‘date’ column from our original non-standardized dataset so we can use time series forecasting methods on the dataset. We do this below.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(forecast)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Registered S3 method overwritten by 'quantmod':
+  method            from
+  as.zoo.data.frame zoo </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'forecast'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following object is masked from 'package:yardstick':
+
+    accuracy</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the dates column</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> data_clean<span class="sc">$</span>Date</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a><span class="co">#Combine dates column with standardized data </span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(data)</span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="at">Date =</span> dates, df)</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert 'date' to Date class and set it as the time index</span></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>ts_data <span class="ot">&lt;-</span> <span class="fu">ts</span>(df<span class="sc">$</span>Close, <span class="at">frequency =</span> <span class="dv">1</span>, <span class="at">start =</span> <span class="fu">c</span>(<span class="fu">year</span>(df<span class="sc">$</span>Date[<span class="dv">1</span>]), <span class="fu">month</span>(df<span class="sc">$</span>Date[<span class="dv">1</span>])))</span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of days for the rolling window</span></span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>window_size <span class="ot">&lt;-</span> <span class="dv">6</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>In the RNN and other models, we usually partition the data into ‘training’ and ‘testing’ so we can train our model then apply it on new data. Here we are using a ‘rolling window approach’, so the concept of distinct training and testing sets is somewhat implicit. As you iterate through the time series data, you use a portion of the past observations (rolling window) to train the model and predict the next observation. In this way, you are continually updating the model with new information and making one-step-ahead forecasts.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize an empty dataframe to store forecasts</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>forecasts <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Date =</span> <span class="fu">as.Date</span>(<span class="fu">character</span>()), <span class="at">Actual =</span> <span class="fu">numeric</span>(), <span class="at">ARIMA =</span> <span class="fu">numeric</span>(), <span class="at">SARIMA =</span> <span class="fu">numeric</span>())</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Perform rolling window forecast</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> (window_size <span class="sc">+</span> <span class="dv">1</span>)<span class="sc">:</span><span class="fu">length</span>(ts_data)) {</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Extract the current window</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>  current_window <span class="ot">&lt;-</span> ts_data[(i <span class="sc">-</span> window_size)<span class="sc">:</span>(i <span class="sc">-</span> <span class="dv">1</span>)]</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># SARIMA Model (Seasonal)</span></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>  sarima_model <span class="ot">&lt;-</span> <span class="fu">auto.arima</span>(current_window, <span class="at">seasonal =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Forecast the next day</span></span>
+<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a>  sarima_forecast <span class="ot">&lt;-</span> <span class="fu">forecast</span>(sarima_model, <span class="at">h =</span> <span class="dv">1</span>)</span>
+<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Store the results in the forecasts dataframe</span></span>
+<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a>  forecasts <span class="ot">&lt;-</span> <span class="fu">rbind</span>(forecasts, <span class="fu">data.frame</span>(<span class="at">Date =</span> <span class="fu">time</span>(ts_data)[i], </span>
+<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">Actual =</span> ts_data[i],</span>
+<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">SARIMA =</span> sarima_forecast<span class="sc">$</span>mean[<span class="dv">1</span>]))  <span class="co"># Extract the first forecast value</span></span>
+<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a>  }</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>So, the need for a separate training and testing set, as typically done in traditional model evaluation, is somewhat inherent in the rolling window approach. The testing set, in this case, is essentially the next data point that the model is predicting. The training set is the rolling window of past observations used to fit the model.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Visualize forecasts for SARIMA</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(ts_data, <span class="at">type =</span> <span class="st">"l"</span>, <span class="at">col =</span> <span class="st">"blue"</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">main =</span> <span class="st">"SARIMA Model Forecast"</span>, <span class="at">xlab =</span> <span class="st">"Date"</span>, <span class="at">ylab =</span> <span class="st">"Closing Prices"</span>)</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(forecasts<span class="sc">$</span>Date, forecasts<span class="sc">$</span>Actual, <span class="at">col =</span> <span class="st">"black"</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">type =</span> <span class="st">"b"</span>, <span class="at">pch =</span> <span class="dv">16</span>)</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="fu">lines</span>(forecasts<span class="sc">$</span>Date, forecasts<span class="sc">$</span>SARIMA, <span class="at">col =</span> <span class="st">"green"</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">type =</span> <span class="st">"b"</span>, <span class="at">pch =</span> <span class="dv">16</span>)</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topright"</span>, <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"Actual"</span>, <span class="st">"SARIMA Forecast"</span>), <span class="at">col =</span> <span class="fu">c</span>(<span class="st">"black"</span>,<span class="st">"green"</span>), <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">pch =</span> <span class="dv">16</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>In the above forecast plot, we can see the SARIMA model does a fairly effective job of predicting the actual values for the S&amp;P 500 stock price. However, we do see some instances like in between day 3000 and day 3200 that the model doesn’t follow the bottom of the ‘valley’ where the stock hits its lowest point.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>actual_values <span class="ot">&lt;-</span> forecasts<span class="sc">$</span>Actual</span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>sarima_forecast_values <span class="ot">&lt;-</span> forecasts<span class="sc">$</span>SARIMA</span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove missing values, if any</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>actual_values <span class="ot">&lt;-</span> actual_values[<span class="sc">!</span><span class="fu">is.na</span>(sarima_forecast_values)]</span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>sarima_forecast_values <span class="ot">&lt;-</span> sarima_forecast_values[<span class="sc">!</span><span class="fu">is.na</span>(sarima_forecast_values)]</span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate squared errors</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>squared_errors <span class="ot">&lt;-</span> (sarima_forecast_values <span class="sc">-</span> actual_values)<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate mean squared error</span></span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a>mse <span class="ot">&lt;-</span> <span class="fu">mean</span>(squared_errors)</span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate root mean squared error</span></span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a>rmse <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(mse)</span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Print RMSE value</span></span>
+<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"RMSE for SARIMA model:"</span>, rmse, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>RMSE for SARIMA model: 0.02274396 </code></pre>
+</div>
+</div>
+<p>When assessing the above RMSE value, we have to remember this approach is convenient for time series forecasting so traditional model evaluation metrics (such as Mean Squared Error) might not be directly applicable in this context, as we are continually updating the model with new information. Due to this, a better option would be to visualize the RMSE over time calculated on each iteration. The below plot does this.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>rmse_values <span class="ot">&lt;-</span> <span class="fu">c</span>()</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate RMSE for each forecasted point</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">2</span><span class="sc">:</span><span class="fu">nrow</span>(forecasts)) {</span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>  actual <span class="ot">&lt;-</span> actual_values[<span class="dv">1</span><span class="sc">:</span>i]</span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a>  sarima_forecast <span class="ot">&lt;-</span> sarima_forecast_values[<span class="dv">1</span><span class="sc">:</span>i]</span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a>  rmse <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">mean</span>((actual <span class="sc">-</span> sarima_forecast)<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a>  rmse_values <span class="ot">&lt;-</span> <span class="fu">c</span>(rmse_values, rmse)</span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualize RMSE over time</span></span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(forecasts<span class="sc">$</span>Date[<span class="dv">2</span><span class="sc">:</span><span class="fu">nrow</span>(forecasts)], rmse_values, <span class="at">type =</span> <span class="st">"l"</span>, <span class="at">col =</span> <span class="st">"blue"</span>, <span class="at">lwd =</span> <span class="dv">2</span>, </span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Rolling RMSE Over Time (SARIMA)"</span>, <span class="at">xlab =</span> <span class="st">"Date"</span>, <span class="at">ylab =</span> <span class="st">"RMSE"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="feed-forward-neural-network" class="level2">
+<h2 class="anchored" data-anchor-id="feed-forward-neural-network">Feed Forward Neural Network</h2>
+<p>This code snippet is setting up a feed-forward neural network, we used this model to compare the accuracy between a FNN and an RNN. A Feed forward Neural Network processes input data sequentially without memory of previous inputs, suitable for tasks with independent elements. In contrast, a Recurrent Neural Network maintains internal memory, allowing it to capture temporal dependencies in sequential data, which models time series data better.</p>
+<p>This code starts with sourcing a script called generator.R to access relevant functions. The parameters lookback, step, delay, and batch_size are defined to configure the characteristics of the training data. Then, a data generator (train_gen_5days) is initialized using the generator_5days function, which takes into account the specified parameters, as well as the stock price data (data). The generator is set to cover a specific range of indices (min_index to max_index) from the dataset without shuffling the data. Finally, the generator is invoked to produce batches of training data, and the resulting data is stored in the variable train_gen_data_5days. This approach aligns with the common practice in time series forecasting, where a model is trained to predict future values based on historical sequences.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">setwd</span>(scripts_dir)</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">'generator.R'</span>)</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>lookback <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>step <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>delay <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>batch_size <span class="ot">&lt;-</span> <span class="dv">128</span></span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a>train_gen_5days <span class="ot">&lt;-</span> <span class="fu">generator_5days</span>(</span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a>  data,</span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">lookback =</span> lookback,</span>
+<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">delay =</span> delay,</span>
+<span id="cb36-12"><a href="#cb36-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">min_index =</span> <span class="dv">500</span>,</span>
+<span id="cb36-13"><a href="#cb36-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_index =</span> <span class="dv">1000</span>,</span>
+<span id="cb36-14"><a href="#cb36-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">shuffle =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb36-15"><a href="#cb36-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">step =</span> step,</span>
+<span id="cb36-16"><a href="#cb36-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">batch_size =</span> batch_size</span>
+<span id="cb36-17"><a href="#cb36-17" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb36-18"><a href="#cb36-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-19"><a href="#cb36-19" aria-hidden="true" tabindex="-1"></a>train_gen_data_5days <span class="ot">&lt;-</span> <span class="fu">train_gen_5days</span>() </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Next, the simple feedforward neural network using the Keras API with the TensorFlow backend is defined. The network consists of a flatten layer to handle input data with a specific shape, followed by a dense layer with ReLU activation and an output layer with a single unit. The model is compiled using the Adam optimizer and Mean Absolute Error (MAE) loss. It is then trained on input samples (samples) and corresponding targets (targets) for 30 epochs, and the training history is visualized. Finally, the mean squared error (MSE) is calculated based on the difference between the predicted and actual values stored in plot_data.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">keras_model_sequential</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_flatten</span>(<span class="at">input_shape =</span> <span class="fu">c</span>(lookback <span class="sc">/</span> step , <span class="dv">6</span>)) <span class="sc">%&gt;%</span>  <span class="co"># Flatten layer to handle the input shape</span></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_dense</span>(<span class="at">units =</span> <span class="dv">32</span>, <span class="at">activation =</span> <span class="st">'relu'</span>) <span class="sc">%&gt;%</span>  <span class="co"># Dense layer with ReLU activation</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">layer_dense</span>(<span class="at">units =</span> <span class="dv">1</span>)  <span class="co"># Output layer with 1 unit</span></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>model <span class="sc">%&gt;%</span> <span class="fu">compile</span>(<span class="at">optimizer =</span> <span class="st">'adam'</span>, <span class="at">loss =</span> <span class="st">'mae'</span>)</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>history <span class="ot">&lt;-</span> model <span class="sc">%&gt;%</span> <span class="fu">fit</span>(</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> train_gen_data_5days[[<span class="dv">1</span>]],</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">y =</span> train_gen_data_5days[[<span class="dv">2</span>]],</span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">epochs =</span> <span class="dv">30</span>,</span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">batch_size =</span> <span class="dv">32</span>,  <span class="co"># Adjust batch size based on your resources</span></span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">validation_split =</span> <span class="fl">0.2</span></span>
+<span id="cb37-14"><a href="#cb37-14" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Epoch 1/30
+4/4 - 0s - loss: 0.6619 - val_loss: 0.4996 - 450ms/epoch - 113ms/step
+Epoch 2/30
+4/4 - 0s - loss: 0.4664 - val_loss: 0.3096 - 28ms/epoch - 7ms/step
+Epoch 3/30
+4/4 - 0s - loss: 0.2690 - val_loss: 0.1245 - 30ms/epoch - 7ms/step
+Epoch 4/30
+4/4 - 0s - loss: 0.0792 - val_loss: 0.0513 - 30ms/epoch - 7ms/step
+Epoch 5/30
+4/4 - 0s - loss: 0.0846 - val_loss: 0.1149 - 29ms/epoch - 7ms/step
+Epoch 6/30
+4/4 - 0s - loss: 0.1167 - val_loss: 0.0789 - 29ms/epoch - 7ms/step
+Epoch 7/30
+4/4 - 0s - loss: 0.0615 - val_loss: 0.0143 - 29ms/epoch - 7ms/step
+Epoch 8/30
+4/4 - 0s - loss: 0.0333 - val_loss: 0.0535 - 29ms/epoch - 7ms/step
+Epoch 9/30
+4/4 - 0s - loss: 0.0527 - val_loss: 0.0241 - 33ms/epoch - 8ms/step
+Epoch 10/30
+4/4 - 0s - loss: 0.0254 - val_loss: 0.0309 - 31ms/epoch - 8ms/step
+Epoch 11/30
+4/4 - 0s - loss: 0.0380 - val_loss: 0.0239 - 29ms/epoch - 7ms/step
+Epoch 12/30
+4/4 - 0s - loss: 0.0251 - val_loss: 0.0190 - 32ms/epoch - 8ms/step
+Epoch 13/30
+4/4 - 0s - loss: 0.0269 - val_loss: 0.0163 - 32ms/epoch - 8ms/step
+Epoch 14/30
+4/4 - 0s - loss: 0.0211 - val_loss: 0.0145 - 31ms/epoch - 8ms/step
+Epoch 15/30
+4/4 - 0s - loss: 0.0219 - val_loss: 0.0129 - 34ms/epoch - 8ms/step
+Epoch 16/30
+4/4 - 0s - loss: 0.0203 - val_loss: 0.0143 - 35ms/epoch - 9ms/step
+Epoch 17/30
+4/4 - 0s - loss: 0.0213 - val_loss: 0.0126 - 35ms/epoch - 9ms/step
+Epoch 18/30
+4/4 - 0s - loss: 0.0201 - val_loss: 0.0127 - 34ms/epoch - 8ms/step
+Epoch 19/30
+4/4 - 0s - loss: 0.0210 - val_loss: 0.0132 - 36ms/epoch - 9ms/step
+Epoch 20/30
+4/4 - 0s - loss: 0.0206 - val_loss: 0.0144 - 38ms/epoch - 9ms/step
+Epoch 21/30
+4/4 - 0s - loss: 0.0207 - val_loss: 0.0124 - 33ms/epoch - 8ms/step
+Epoch 22/30
+4/4 - 0s - loss: 0.0204 - val_loss: 0.0138 - 33ms/epoch - 8ms/step
+Epoch 23/30
+4/4 - 0s - loss: 0.0195 - val_loss: 0.0140 - 33ms/epoch - 8ms/step
+Epoch 24/30
+4/4 - 0s - loss: 0.0204 - val_loss: 0.0124 - 34ms/epoch - 9ms/step
+Epoch 25/30
+4/4 - 0s - loss: 0.0218 - val_loss: 0.0136 - 33ms/epoch - 8ms/step
+Epoch 26/30
+4/4 - 0s - loss: 0.0209 - val_loss: 0.0170 - 46ms/epoch - 12ms/step
+Epoch 27/30
+4/4 - 0s - loss: 0.0201 - val_loss: 0.0133 - 34ms/epoch - 8ms/step
+Epoch 28/30
+4/4 - 0s - loss: 0.0210 - val_loss: 0.0132 - 31ms/epoch - 8ms/step
+Epoch 29/30
+4/4 - 0s - loss: 0.0182 - val_loss: 0.0146 - 32ms/epoch - 8ms/step
+Epoch 30/30
+4/4 - 0s - loss: 0.0199 - val_loss: 0.0123 - 32ms/epoch - 8ms/step</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(history)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="vignette-RNN_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>batch_size_plot <span class="ot">&lt;-</span> <span class="dv">120</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>lookback_plot <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>step_plot <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>pred_gen_5days <span class="ot">&lt;-</span> <span class="fu">generator_5days</span>(</span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>  data,</span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">lookback =</span> lookback_plot,</span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">delay =</span> <span class="dv">0</span>,</span>
+<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">min_index =</span> <span class="dv">1000</span>,</span>
+<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_index =</span> <span class="dv">1260</span>,</span>
+<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">shuffle =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">step =</span> step_plot,</span>
+<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">batch_size =</span> batch_size_plot</span>
+<span id="cb40-15"><a href="#cb40-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb40-16"><a href="#cb40-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-17"><a href="#cb40-17" aria-hidden="true" tabindex="-1"></a>pred_gen_data_5days <span class="ot">&lt;-</span> <span class="fu">pred_gen_5days</span>()</span>
+<span id="cb40-18"><a href="#cb40-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-19"><a href="#cb40-19" aria-hidden="true" tabindex="-1"></a>V1 <span class="ot">=</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(pred_gen_data_5days[[<span class="dv">2</span>]]))</span>
+<span id="cb40-20"><a href="#cb40-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-21"><a href="#cb40-21" aria-hidden="true" tabindex="-1"></a><span class="co"># binds V1 as time step (actual) to actual sequence </span></span>
+<span id="cb40-22"><a href="#cb40-22" aria-hidden="true" tabindex="-1"></a>plot_data_5days <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">cbind</span>(V1, pred_gen_data_5days[[<span class="dv">2</span>]]))</span>
+<span id="cb40-23"><a href="#cb40-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-24"><a href="#cb40-24" aria-hidden="true" tabindex="-1"></a>inputdata_5days <span class="ot">&lt;-</span> pred_gen_data_5days[[<span class="dv">1</span>]][,,]</span>
+<span id="cb40-25"><a href="#cb40-25" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(inputdata_5days) <span class="ot">&lt;-</span> <span class="fu">c</span>(batch_size_plot,lookback_plot, <span class="dv">6</span>)</span>
+<span id="cb40-26"><a href="#cb40-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-27"><a href="#cb40-27" aria-hidden="true" tabindex="-1"></a>pred_out_5days <span class="ot">&lt;-</span> model <span class="sc">%&gt;%</span> <span class="fu">predict</span>(inputdata_5days) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>4/4 - 0s - 49ms/epoch - 12ms/step</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>plot_data_5days <span class="ot">&lt;-</span> <span class="fu">cbind</span>(plot_data_5days, pred_out_5days[])</span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a>rmse <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">mean</span>((plot_data_5days[,<span class="dv">2</span>] <span class="sc">-</span> plot_data_5days[,<span class="dv">3</span>])<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb42-5"><a href="#cb42-5" aria-hidden="true" tabindex="-1"></a>rmse</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.05784787</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="conclusion" class="level1">
+<h1>Conclusion</h1>
+<table class="table">
+<thead>
+<tr class="header">
+<th>Model Name</th>
+<th>RSME Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Multivariate LSTM RNN</td>
+<td>0.055</td>
+</tr>
+<tr class="even">
+<td>Univariate LSTM RNN</td>
+<td>0.077</td>
+</tr>
+<tr class="odd">
+<td>SARIMA</td>
+<td>0.023</td>
+</tr>
+<tr class="even">
+<td>Feed-Forward Neural Network</td>
+<td>0.0819</td>
+</tr>
+</tbody>
+</table>
+<p>Out of the four models, the Multivariate LSTM Recurrent neural network performed the best with a Root Mean Square Error value of 0.055. We did not consider the SARIMA model’s value because the model is being continuously trained on the entirety of the data due to the sliding window approach, unlike the other models. The other three models were split into testing and training so there was less data for the model to learn from. The Feed Forward Neural Network had the highest root mean square error value because it is the least optimized for time series data as it does not have a backpropogate feature to adjust the weights after the initial prediction is compared to the ground truth through a loss function, yet it still finished fairly closely behind the Univariate LSTM Recurrent Neural Network.</p>
+<section id="model-considerations" class="level2">
+<h2 class="anchored" data-anchor-id="model-considerations">Model Considerations</h2>
+<p>Ultimately, the Multivariate LSTM model outperformed the standard feed-forward network in predicting stock price data with a lookback of 5 days due to its ability to capture temporal dependencies and handle sequential data effectively. The Multivariate LSTM did better than the Univariate LSTM, suggesting that temporal dependencies of other features in the data are useful in predicting the adjusted closing price of the S&amp;P 500. The LSTM’s architecture, incorporating memory cells and gates, allows it to retain and utilize information from past time steps, making it good at capturing long-term patterns in stock prices. With a lookback of 5 days, the LSTM can generalize trends and intricate patterns within S&amp;P 500, enabling more accurate predictions compared to a feed-forward network that lacks memory and sequential understanding. Adjusting the lookback value could lead to better model performance, as LSTMs might be better loopbacko larger lookback values, utilizing its memory cells and gate features. Adjusting other hyperparameters like batch size, a moderate value of, say, 32 or 64, could help in training by balancing computation and speeding up model convergence. The SARIMA model is also well suited to predict sequences like stock price data, as its dynamic training using the sliding window approach helps with prediction accuracy. Furthermore, setting an appropriate number of epochs allows the LSTM to iteratively learn and refine its understanding of temporal dynamics, ultimately enhancing its predictive capabilities.</p>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

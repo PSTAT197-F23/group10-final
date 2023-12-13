@@ -31,7 +31,7 @@ This vignette intends to introduce its audience to the concept of a recurrent ne
 The data we will be using comes from [Kaggle](https://www.kaggle.com/datasets/henryhan117/sp-500-historical-data/). This dataset includes daily observations of data regarding the S&P 500 index. Features include the following:
 
 | Feature        | Description                                                                       |
-|-------------------|-----------------------------------------------------|
+|---------------------|---------------------------------------------------|
 | Date           | Date on which stock was observed                                                  |
 | Open           | Price at market open                                                              |
 | High           | Highest price on given trading day                                                |
@@ -438,7 +438,6 @@ cat("RMSE for SARIMA model:", rmse, "\n")
 
 When assessing the above RMSE value, we have to remember this approach is convenient for time series forecasting so traditional model evaluation metrics (such as Mean Squared Error) might not be directly applicable in this context, as we are continually updating the model with new information. Due to this, a better option would be to visualize the RMSE over time calculated on each iteration. The below plot does this.
 
-
 ```{r}
 rmse_values <- c()
 
@@ -457,7 +456,7 @@ plot(forecasts$Date[2:nrow(forecasts)], rmse_values, type = "l", col = "blue", l
 
 ## Feed Forward Neural Network
 
-This code snippet is setting up a feed-forward neural network, we used this model to compare the accuracy between a FNN and an RNN. A Feedforward Neural Network processes input data sequentially without memory of previous inputs, suitable for tasks with independent elements. In contrast, a Recurrent Neural Network maintains internal memory, allowing it to capture temporal dependencies in sequential data, which models time series data better.
+This code snippet is setting up a feed-forward neural network, we used this model to compare the accuracy between a FNN and an RNN. A Feed forward Neural Network processes input data sequentially without memory of previous inputs, suitable for tasks with independent elements. In contrast, a Recurrent Neural Network maintains internal memory, allowing it to capture temporal dependencies in sequential data, which models time series data better.
 
 This code starts with sourcing a script called generator.R to access relevant functions. The parameters lookback, step, delay, and batch_size are defined to configure the characteristics of the training data. Then, a data generator (train_gen_5days) is initialized using the generator_5days function, which takes into account the specified parameters, as well as the stock price data (data). The generator is set to cover a specific range of indices (min_index to max_index) from the dataset without shuffling the data. Finally, the generator is invoked to produce batches of training data, and the resulting data is stored in the variable train_gen_data_5days. This approach aligns with the common practice in time series forecasting, where a model is trained to predict future values based on historical sequences.
 
@@ -493,19 +492,52 @@ model <- keras_model_sequential() %>%
 
 model %>% compile(optimizer = 'adam', loss = 'mae')
 
-
 history <- model %>% fit(
-  x = samples,
-  y = targets,
+  x = train_gen_data_5days[[1]],
+  y = train_gen_data_5days[[2]],
   epochs = 30,
   batch_size = 32,  # Adjust batch size based on your resources
   validation_split = 0.2
 )
 
 plot(history)
+```
 
-mse <- mean((plot_data[,2] - plot_data[,3])^2)
-mse
+```{r}
+batch_size_plot <- 120
+lookback_plot <- 5
+step_plot <- 1
+
+set.seed(123)
+pred_gen_5days <- generator_5days(
+  data,
+  lookback = lookback_plot,
+  delay = 0,
+  min_index = 1000,
+  max_index = 1260,
+  shuffle = FALSE,
+  step = step_plot,
+  batch_size = batch_size_plot
+)
+
+pred_gen_data_5days <- pred_gen_5days()
+
+V1 = seq(1, length(pred_gen_data_5days[[2]]))
+
+# binds V1 as time step (actual) to actual sequence 
+plot_data_5days <- as.data.frame(cbind(V1, pred_gen_data_5days[[2]]))
+
+inputdata_5days <- pred_gen_data_5days[[1]][,,]
+dim(inputdata_5days) <- c(batch_size_plot,lookback_plot, 6)
+
+pred_out_5days <- model %>% predict(inputdata_5days) 
+
+
+plot_data_5days <- cbind(plot_data_5days, pred_out_5days[])
+
+
+rmse <- sqrt(mean((plot_data_5days[,2] - plot_data_5days[,3])^2))
+rmse
 ```
 
 # Conclusion
@@ -515,4 +547,10 @@ mse
 | Multivariate LSTM RNN       | 0.055      |
 | Univariate LSTM RNN         | 0.077      |
 | SARIMA                      | 0.023      |
-| Feed-Forward Neural Network | 0.0790     |
+| Feed-Forward Neural Network | 0.0819     |
+
+Out of the four models, the Multivariate LSTM Recurrent neural network performed the best with a Root Mean Square Error value of 0.055. We did not consider the SARIMA model's value because the model is being continuously trained on the entirety of the data due to the sliding window approach, unlike the other models. The other three models were split into testing and training so there was less data for the model to learn from. The Feed Forward Neural Network had the highest root mean square error value because it is the least optimized for time series data as it does not have a backpropogate feature to adjust the weights after the initial prediction is compared to the ground truth through a loss function, yet it still finished fairly closely behind the Univariate LSTM Recurrent Neural Network.
+
+## Model Considerations
+
+Ultimately, the Multivariate LSTM model outperformed the standard feed-forward network in predicting stock price data with a lookback of 5 days due to its ability to capture temporal dependencies and handle sequential data effectively. The Multivariate LSTM did better than the Univariate LSTM, suggesting that temporal dependencies of other features in the data are useful in predicting the adjusted closing price of the S&P 500. The LSTM's architecture, incorporating memory cells and gates, allows it to retain and utilize information from past time steps, making it good at capturing long-term patterns in stock prices. With a lookback of 5 days, the LSTM can generalize trends and intricate patterns within S&P 500, enabling more accurate predictions compared to a feed-forward network that lacks memory and sequential understanding. Adjusting the lookback value could lead to better model performance, as LSTMs might be better loopbacko larger lookback values, utilizing its memory cells and gate features. Adjusting other hyperparameters like batch size, a moderate value of, say, 32 or 64, could help in training by balancing computation and speeding up model convergence. The SARIMA model is also well suited to predict sequences like stock price data, as its dynamic training using the sliding window approach helps with prediction accuracy. Furthermore, setting an appropriate number of epochs allows the LSTM to iteratively learn and refine its understanding of temporal dynamics, ultimately enhancing its predictive capabilities.
