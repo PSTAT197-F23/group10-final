@@ -14,7 +14,10 @@ library(yardstick)
 library(ggplot2)
 library(dplyr)
 
-setwd("~/vignette-group10-RNN/data/")
+root_dir <- rprojroot::find_rstudio_root_file()
+data_dir <- file.path(root_dir, "data")
+scripts_dir <- file.path(root_dir, "scripts")
+setwd(data_dir)
 ```
 
 # Background and Overview of Project
@@ -104,7 +107,8 @@ Recurrent Neural Networks (RNNs) are a class of neural networks designed to proc
 
 ```{r}
 ### calling generator function
-source('~/vignette-group10-RNN/scripts/generator.R')
+setwd(scripts_dir)
+source('generator.R')
 lookback <- 5
 step <- 1
 delay <- 0
@@ -232,7 +236,8 @@ Next, we'll redo our LSTM model using the feature we aim to predict, the adjuste
 In this case, we're generating training sequences with a lookback of 5 days of only the adjusted closing price value. 
 
 ```{r}
-source('~/vignette-group10-RNN/scripts/generator.R')
+setwd(scripts_dir)
+source('generator.R')
 lookback <- 5
 step <- 1
 delay <- 0
