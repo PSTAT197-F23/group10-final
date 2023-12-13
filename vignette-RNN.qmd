@@ -362,7 +362,7 @@ df <- as.data.frame(data)
 df <- cbind(Date = dates, df)
 
 # Convert 'date' to Date class and set it as the time index
-ts_data <- ts(df$Close, frequency = 1, start = c(year(df$Date[1]), month(df$Date[1])))
+ts_data <- ts(df$Adj.Close, frequency = 1, start = c(year(df$Date[1]), month(df$Date[1])))
 
 # Number of days for the rolling window
 window_size <- 6
@@ -391,7 +391,9 @@ for (i in (window_size + 1):length(ts_data)) {
   forecasts <- rbind(forecasts, data.frame(Date = time(ts_data)[i], 
                                            Actual = ts_data[i],
                                            SARIMA = sarima_forecast$mean[1]))  # Extract the first forecast value
-  }
+}
+
+View(forecasts)
 ```
 
 So, the need for a separate training and testing set, as typically done in traditional model evaluation, is somewhat inherent in the rolling window approach. The testing set, in this case, is essentially the next data point that the model is predicting. The training set is the rolling window of past observations used to fit the model.
@@ -428,3 +430,22 @@ rmse <- sqrt(mse)
 # Print RMSE value
 cat("RMSE for SARIMA model:", rmse, "\n")
 ```
+The above RMSE value must be taken with some caution as this approach is convenient for time series forecasting, keep in mind that traditional model evaluation metrics (such as Mean Squared Error) might not be directly applicable in this context, as you are continually updating the model with new information. So we can create a visualization below to show how the RMSE changes over time to give us a better understanding.
+
+```{r}
+rmse_values <- c()
+
+# Calculate RMSE for each forecasted point
+for (i in 2:nrow(forecasts)) {
+  actual <- actual_values[1:i]
+  sarima_forecast <- sarima_forecast_values[1:i]
+  rmse <- sqrt(mean((actual - sarima_forecast)^2))
+  rmse_values <- c(rmse_values, rmse)
+}
+
+# Visualize RMSE over time
+plot(forecasts$Date[2:nrow(forecasts)], rmse_values, type = "l", col = "blue", lwd = 2, 
+     main = "Rolling RMSE Over Time (SARIMA)", xlab = "Date", ylab = "RMSE")
+
+```
+
