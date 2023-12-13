@@ -362,7 +362,7 @@ df <- as.data.frame(data)
 df <- cbind(Date = dates, df)
 
 # Convert 'date' to Date class and set it as the time index
-ts_data <- ts(df$Adj.Close, frequency = 1, start = c(year(df$Date[1]), month(df$Date[1])))
+ts_data <- ts(df$Close, frequency = 1, start = c(year(df$Date[1]), month(df$Date[1])))
 
 # Number of days for the rolling window
 window_size <- 6
@@ -391,9 +391,7 @@ for (i in (window_size + 1):length(ts_data)) {
   forecasts <- rbind(forecasts, data.frame(Date = time(ts_data)[i], 
                                            Actual = ts_data[i],
                                            SARIMA = sarima_forecast$mean[1]))  # Extract the first forecast value
-}
-
-View(forecasts)
+  }
 ```
 
 So, the need for a separate training and testing set, as typically done in traditional model evaluation, is somewhat inherent in the rolling window approach. The testing set, in this case, is essentially the next data point that the model is predicting. The training set is the rolling window of past observations used to fit the model.
@@ -430,22 +428,54 @@ rmse <- sqrt(mse)
 # Print RMSE value
 cat("RMSE for SARIMA model:", rmse, "\n")
 ```
-The above RMSE value must be taken with some caution as this approach is convenient for time series forecasting, keep in mind that traditional model evaluation metrics (such as Mean Squared Error) might not be directly applicable in this context, as you are continually updating the model with new information. So we can create a visualization below to show how the RMSE changes over time to give us a better understanding.
+## Feed Forward Neural Network
 
+This code snippet is setting up a feed-forward neural network, we used this model to compare the accuracy between a FNN and an RNN. A Feedforward Neural Network processes input data sequentially without memory of previous inputs, suitable for tasks with independent elements. In contrast, a Recurrent Neural Network maintains internal memory, allowing it to capture temporal dependencies in sequential data, which models time series data better. 
+
+This code starts with sourcing a script called generator.R to access relevant functions. The parameters lookback, step, delay, and batch_size are defined to configure the characteristics of the training data. Then, a data generator (train_gen_5days) is initialized using the generator_5days function, which takes into account the specified parameters, as well as the stock price data (data). The generator is set to cover a specific range of indices (min_index to max_index) from the dataset without shuffling the data. Finally, the generator is invoked to produce batches of training data, and the resulting data is stored in the variable train_gen_data_5days. This approach aligns with the common practice in time series forecasting, where a model is trained to predict future values based on historical sequences.
 ```{r}
-rmse_values <- c()
+source('~/Downloads/pstat197/vignette-group10-RNN/scripts/generator.R')
+lookback <- 5
+step <- 1
+delay <- 0
+batch_size <- 128
+set.seed(123)
+train_gen_5days <- generator_5days(
+  data,
+  lookback = lookback,
+  delay = delay,
+  min_index = 500,
+  max_index = 1000,
+  shuffle = FALSE,
+  step = step,
+  batch_size = batch_size
+)
 
-# Calculate RMSE for each forecasted point
-for (i in 2:nrow(forecasts)) {
-  actual <- actual_values[1:i]
-  sarima_forecast <- sarima_forecast_values[1:i]
-  rmse <- sqrt(mean((actual - sarima_forecast)^2))
-  rmse_values <- c(rmse_values, rmse)
-}
+train_gen_data_5days <- train_gen_5days() 
+```
 
-# Visualize RMSE over time
-plot(forecasts$Date[2:nrow(forecasts)], rmse_values, type = "l", col = "blue", lwd = 2, 
-     main = "Rolling RMSE Over Time (SARIMA)", xlab = "Date", ylab = "RMSE")
+Next, the simple feedforward neural network using the Keras API with the TensorFlow backend is defined. The network consists of a flatten layer to handle input data with a specific shape, followed by a dense layer with ReLU activation and an output layer with a single unit. The model is compiled using the Adam optimizer and Mean Absolute Error (MAE) loss. It is then trained on input samples (samples) and corresponding targets (targets) for 30 epochs, and the training history is visualized. Finally, the mean squared error (MSE) is calculated based on the difference between the predicted and actual values stored in plot_data.
+```{r}
+model <- keras_model_sequential() %>%
+  layer_flatten(input_shape = c(lookback / step , 6)) %>%  # Flatten layer to handle the input shape
+  layer_dense(units = 32, activation = 'relu') %>%  # Dense layer with ReLU activation
+  layer_dense(units = 1)  # Output layer with 1 unit
+
+model %>% compile(optimizer = 'adam', loss = 'mae')
+
+
+history <- model %>% fit(
+  x = samples,
+  y = targets,
+  epochs = 30,
+  batch_size = 32,  # Adjust batch size based on your resources
+  validation_split = 0.2
+)
+
+plot(history)
+
+mse <- mean((plot_data[,2] - plot_data[,3])^2)
+mse
 
 ```
 
