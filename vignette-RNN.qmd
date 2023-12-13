@@ -348,7 +348,7 @@ In the case of the LSTM RNN model using all the features in the dataset, we achi
 
 ## SARIMA Model 
 
-The first model we can use to predict or 'forecast' the S&P 500 stock price can be an auto-regressive time series model. 
+The first model we can use to predict or 'forecast' the S&P 500 stock price can be an auto-regressive time series model. We first have to re-add the 'date' column from our original non-standardized dataset so we can use time series forecasting methods on the dataset. We do this below.
 
 ```{r}
 library(forecast)
@@ -369,7 +369,7 @@ window_size <- 6
 
 ```
 
-
+In the RNN and other models, we usually partition the data into 'training' and 'testing' so we can train our model then apply it on new data. Here we are using a 'rolling window approach', so the concept of distinct training and testing sets is somewhat implicit. As you iterate through the time series data, you use a portion of the past observations (rolling window) to train the model and predict the next observation. In this way, you are continually updating the model with new information and making one-step-ahead forecasts.
 
 ```{r}
 # Initialize an empty dataframe to store forecasts
@@ -394,6 +394,7 @@ for (i in (window_size + 1):length(ts_data)) {
   }
 ```
 
+So, the need for a separate training and testing set, as typically done in traditional model evaluation, is somewhat inherent in the rolling window approach. The testing set, in this case, is essentially the next data point that the model is predicting. The training set is the rolling window of past observations used to fit the model.
 
 ```{r}
 
@@ -405,6 +406,7 @@ legend("topright", legend = c("Actual", "SARIMA Forecast"), col = c("black","gre
 
 
 ```
+In the above forecast plot, we can see the SARIMA model does a fairly effective job of predicting the actual values for the S&P 500 stock price. However, we do see some instances like in between day 3000 and day 3200 that the model doesn't follow the bottom of the 'valley' where the stock hits its lowest point.
 
 ```{r}
 actual_values <- forecasts$Actual
